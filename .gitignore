@@ -1,0 +1,19 @@
+# default logs
+*.log
+
+# go pprof files
+*.prof
+
+# swap
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*~
+
+# auto-generated tag files
+[._]tags*
+
+# vimdiff original files
+*.orig
+
+# idea
+.idea/
