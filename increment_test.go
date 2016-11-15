@@ -21,7 +21,7 @@ func newTestFile(t *testing.T, fileName string) *os.File {
 }
 
 type testCounterParams struct {
-	name           string
+	metricName     string
 	operationID    string
 	fileName       string
 	operationCount int
@@ -32,19 +32,25 @@ type testCounterParams struct {
 func testCounter(t *testing.T, p testCounterParams) {
 	var c Incrementor
 	if p.operationID == "inc" {
-		c = NewIncrementor(p.name)
+		c = NewIncrementor(p.metricName)
 		for i := 0; i < p.operationCount; i++ {
 			c.Inc()
 		}
 	} else if p.operationID == "add" {
-		c = NewIncrementor(p.name)
+		c = NewIncrementor(p.metricName)
 		for i := 0; i < p.operationCount; i++ {
 			c.Add(p.operationValue)
 		}
 	} else if p.operationID == "set" {
-		c := NewCounter(p.name)
+		c := NewCounter(p.metricName)
 		for i := 0; i < p.operationCount; i++ {
 			c.Set(p.operationValue)
+		}
+	} else if p.operationID == "dec" {
+		c := NewCounter(p.metricName)
+		c.Set(p.operationValue)
+		for i := 0; i < p.operationCount; i++ {
+			c.Dec()
 		}
 	}
 
@@ -61,7 +67,7 @@ func testCounter(t *testing.T, p testCounterParams) {
 	for _, l := range lines {
 		counterData := strings.Split(l, " = ")
 		require.True(t, len(counterData) == 2)
-		if counterData[0] == p.name {
+		if counterData[0] == p.metricName {
 			// check the counter value
 			val, err := strconv.Atoi(counterData[1])
 			require.Nil(t, err)
@@ -86,7 +92,7 @@ func TestInc(t *testing.T) {
 	SetFormat("%v = %v\n")
 
 	testCounter(t, testCounterParams{
-		name:           "simple_counter1",
+		metricName:     "simple_counter1",
 		operationCount: 10,
 		operationID:    "inc",
 		fileName:       file.Name(),
@@ -102,7 +108,7 @@ func TestAdd(t *testing.T) {
 	SetFormat("%v = %v\n")
 
 	testCounter(t, testCounterParams{
-		name:           "simple_adder",
+		metricName:     "simple_adder",
 		operationCount: 2,
 		operationID:    "add",
 		fileName:       file.Name(),

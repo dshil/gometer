@@ -21,3 +21,7 @@ func (v *value) Value() int64 {
 func (v *value) Set(val int64) {
 	atomic.StoreInt64(&v.val, val)
 }
+
+func (v *value) Dec() {
+	v.Add(-1)
+}

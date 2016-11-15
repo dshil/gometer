@@ -7,6 +7,9 @@ type Counter interface {
 
 	// Set sets the value to counter. Value can be negative.
 	Set(val int64)
+
+	// Dec decrements counter by 1.
+	Dec()
 }
 
 type counter struct {

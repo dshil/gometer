@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// Metric allows to add counters, incrementors,
+// writes all metrics to out.
 type Metric struct {
 	mu             sync.Mutex
 	out            io.Writer
