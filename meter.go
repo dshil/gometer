@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -131,10 +132,11 @@ func write(m *Metric) error {
 
 	var buf bytes.Buffer
 	for name, val := range std.metrics {
-		fmt.Fprintf(&buf, m.format, name, val.Value())
+		fmt.Fprintf(&buf, m.format+"\n", name, val.Value())
 	}
 
-	if _, err := m.out.Write(buf.Bytes()); err != nil {
+	data := strings.TrimSuffix(buf.String(), "\n")
+	if _, err := m.out.Write([]byte(data)); err != nil {
 		return err
 	}
 	return nil
