@@ -14,7 +14,7 @@ func TestSet(t *testing.T) {
 		operationID:    "set",
 		fileName:       file.Name(),
 		expectedValue:  100,
-		operationValue: 100,
+		initialValue:   100,
 	})
 
 	testCounter(t, testCounterParams{
@@ -23,7 +23,7 @@ func TestSet(t *testing.T) {
 		operationID:    "set",
 		fileName:       file.Name(),
 		expectedValue:  -19,
-		operationValue: -19,
+		initialValue:   -19,
 	})
 }
 
@@ -38,7 +38,7 @@ func TestDec(t *testing.T) {
 		operationID:    "dec",
 		fileName:       file.Name(),
 		expectedValue:  2,
-		operationValue: 4,
+		initialValue:   4,
 		operationCount: 2,
 	})
 }

@@ -25,7 +25,7 @@ type testCounterParams struct {
 	operationID    string
 	fileName       string
 	operationCount int
-	operationValue int64
+	initialValue   int64
 	expectedValue  int
 }
 
@@ -39,16 +39,16 @@ func testCounter(t *testing.T, p testCounterParams) {
 	} else if p.operationID == "add" {
 		c = NewIncrementor(p.metricName)
 		for i := 0; i < p.operationCount; i++ {
-			c.Add(p.operationValue)
+			c.Add(p.initialValue)
 		}
 	} else if p.operationID == "set" {
 		c := NewCounter(p.metricName)
 		for i := 0; i < p.operationCount; i++ {
-			c.Set(p.operationValue)
+			c.Set(p.initialValue)
 		}
 	} else if p.operationID == "dec" {
 		c := NewCounter(p.metricName)
-		c.Set(p.operationValue)
+		c.Set(p.initialValue)
 		for i := 0; i < p.operationCount; i++ {
 			c.Dec()
 		}
@@ -113,6 +113,6 @@ func TestAdd(t *testing.T) {
 		operationID:    "add",
 		fileName:       file.Name(),
 		expectedValue:  4,
-		operationValue: 2,
+		initialValue:   2,
 	})
 }
