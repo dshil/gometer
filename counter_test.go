@@ -3,10 +3,10 @@ package gometer
 import "testing"
 
 func TestSet(t *testing.T) {
-	file := newTestFile(t, "test_set")
+	file := newTestFile(t, "test_set_positive")
 	defer closeAndRemoveTestFile(t, file)
 	SetOutput(file)
-	SetFormat("%v = %v\n")
+	SetFormat("%v = %v")
 
 	testCounter(t, testCounterParams{
 		metricName:     "test_set_positive_val",
@@ -17,6 +17,10 @@ func TestSet(t *testing.T) {
 		initialValue:   100,
 	})
 
+	file = newTestFile(t, "test_set_negative")
+	SetOutput(file)
+
+	defer closeAndRemoveTestFile(t, file)
 	testCounter(t, testCounterParams{
 		metricName:     "test_set_negative_val",
 		operationCount: 1,
@@ -31,7 +35,7 @@ func TestDec(t *testing.T) {
 	file := newTestFile(t, "test_dec")
 	defer closeAndRemoveTestFile(t, file)
 	SetOutput(file)
-	SetFormat("%v = %v\n")
+	SetFormat("%v = %v")
 
 	testCounter(t, testCounterParams{
 		metricName:     "test_decrement_counter",

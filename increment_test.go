@@ -27,6 +27,7 @@ type testCounterParams struct {
 	operationCount int
 	initialValue   int64
 	expectedValue  int
+	metricNumber   int
 }
 
 func testCounter(t *testing.T, p testCounterParams) {
@@ -61,15 +62,24 @@ func testCounter(t *testing.T, p testCounterParams) {
 	data, err := ioutil.ReadFile(p.fileName)
 	require.Nil(t, err)
 
-	lines := strings.Split(string(data), "\n")
-	require.True(t, len(lines) > 1)
+	metricsData := strings.Split(string(data), "\n")
 
-	for _, l := range lines {
-		counterData := strings.Split(l, " = ")
-		require.True(t, len(counterData) == 2)
-		if counterData[0] == p.metricName {
+	var reqMetricLen bool
+	if p.metricNumber == 0 {
+		reqMetricLen = len(metricsData) >= 1
+	} else {
+		reqMetricLen = (len(metricsData) == p.metricNumber)
+	}
+	require.True(t, reqMetricLen)
+
+	for _, l := range metricsData {
+		metric := strings.Split(l, " = ")
+		require.True(t, len(metric) == 2)
+		metricName := metric[0]
+		if metricName == p.metricName {
 			// check the counter value
-			val, err := strconv.Atoi(counterData[1])
+			metricVal := metric[1]
+			val, err := strconv.Atoi(metricVal)
 			require.Nil(t, err)
 			assert.Equal(t, p.expectedValue, val)
 			return
@@ -89,7 +99,7 @@ func TestInc(t *testing.T) {
 	defer closeAndRemoveTestFile(t, file)
 
 	SetOutput(file)
-	SetFormat("%v = %v\n")
+	SetFormat("%v = %v")
 
 	testCounter(t, testCounterParams{
 		metricName:     "simple_counter1",
@@ -105,7 +115,7 @@ func TestAdd(t *testing.T) {
 	defer closeAndRemoveTestFile(t, file)
 
 	SetOutput(file)
-	SetFormat("%v = %v\n")
+	SetFormat("%v = %v")
 
 	testCounter(t, testCounterParams{
 		metricName:     "simple_adder",
