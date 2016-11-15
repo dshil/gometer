@@ -2,9 +2,8 @@
 
 `gometer` is a small library for your application's metrics.
 
-It operates with two concepts: Increment and Counter.
-`Increment` allows you to increment your metric by 1.
-
+It operates with two concepts: Incrementer and Counter.   
+`Incrementer` allows you to increment your metric by 1.   
 `Counter` is more general kind of metrics. It allows to increment, decrement, set value for your metrics.
 
 ## Installation
