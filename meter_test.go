@@ -44,7 +44,7 @@ type testWriteAtFileParams struct {
 	separator    string
 	expMetricCnt int
 	waitDur      time.Duration
-	stopper      *Stopper
+	stopper      *stopper
 }
 
 func testWriteAtFile(t *testing.T, p testWriteAtFileParams) {

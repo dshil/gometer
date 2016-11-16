@@ -96,10 +96,6 @@ func TestSimpleCounter(t *testing.T) {
 	// each metric line will be separated by \n.
 	gometer.SetSeparator("\n")
 
-	// require to call gometer.Write() method manually
-	// because update interval equals to 0.
-	gometer.SetUpdateInterval(0)
-
 	// init simple counter and increment it 10 times.
 	inc := gometer.NewIncrementor("number_incrementor")
 	for i := 0; i < 10; i++ {
