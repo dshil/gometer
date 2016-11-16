@@ -123,7 +123,22 @@ func SetFormat(f string) {
 }
 
 // Write all existing metrics to output destination for standard metric.
+//
+// Writing metrics to the file using this method will not recreate a file.
+// it just append existing metrics to existing file's data.
+// if you want to write metrics to clear file use WriteAtFile() method.
 func Write() error {
+	return write(std)
+}
+
+func WriteAtFile(fileName string) error {
+	file, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	SetOutput(file)
 	return write(std)
 }
 
