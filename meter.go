@@ -66,8 +66,8 @@ func (m *metric) Write() error {
 	return write(m)
 }
 
-// Stopper allows to stop writing metrics to file.
-type Stopper struct {
+// stopper allows to stop writing metrics to file.
+type stopper struct {
 	Stop func()
 }
 
@@ -75,16 +75,16 @@ type Stopper struct {
 //
 // updateInterval determines how often metric will be write
 // to file.
-// use Stopper to stop writing metrics periodically to file.
-func (m *metric) WriteAtFile(path string, updateInterval time.Duration, runImmediately bool) *Stopper {
+// use stopper to stop writing metrics periodically to file.
+func (m *metric) WriteAtFile(path string, updateInterval time.Duration, runImmediately bool) *stopper {
 	return writeAtFile(m, path, updateInterval, runImmediately)
 }
 
-func writeAtFile(m *metric, path string, updateInterval time.Duration, runImmediately bool) *Stopper {
+func writeAtFile(m *metric, path string, updateInterval time.Duration, runImmediately bool) *stopper {
 	stopCh := make(chan bool, 1)
 
 	once := sync.Once{}
-	s := &Stopper{
+	s := &stopper{
 		Stop: func() {
 			once.Do(func() {
 				stopCh <- true
@@ -134,7 +134,7 @@ func runFileWriter(p fileWriterParams) {
 				panic(err)
 			}
 		case <-p.stopCh:
-			close(p.stopCh)
+			defer close(p.stopCh)
 			return
 		}
 	}
@@ -223,7 +223,7 @@ func Write() error {
 
 // WriteAtFile writes all metrics of standard metric to clear file.
 // it writes to file periodically, until you don't stop it.
-func WriteAtFile(path string, updateInterval time.Duration, runImmediately bool) *Stopper {
+func WriteAtFile(path string, updateInterval time.Duration, runImmediately bool) *stopper {
 	return writeAtFile(std, path, updateInterval, runImmediately)
 }
 
