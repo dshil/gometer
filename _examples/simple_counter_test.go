@@ -48,8 +48,10 @@ func TestSimpleCounter(t *testing.T) {
 
 	// choose a format of metric representation.
 	// e.g metric_name = metric_value.
-	// each metric line will be separated by \n.
 	gometer.SetFormat("%v = %v")
+
+	// each metric line will be separated by \n.
+	gometer.SetSeparator("\n")
 
 	// require to call gometer.Write() method manually
 	// because update interval equals to 0.
@@ -75,8 +77,10 @@ func TestSimpleCounter(t *testing.T) {
 	data, err := ioutil.ReadFile(fileName)
 	require.Nil(t, err)
 
-	// metrics are splitted using \n symbol.
-	metricsData := strings.Split(string(data), "\n")
+	// metrics are splitted using \n separator.
+	// need to trim separator from last line of the file.
+	metrics := strings.TrimSuffix(string(data), gometer.Separator())
+	metricsData := strings.Split(metrics, gometer.Separator())
 
 	// we have only 2 metrics in file.
 	require.Equal(t, 2, len(metricsData))

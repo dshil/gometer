@@ -62,7 +62,8 @@ func testCounter(t *testing.T, p testCounterParams) {
 	data, err := ioutil.ReadFile(p.fileName)
 	require.Nil(t, err)
 
-	metricsData := strings.Split(string(data), "\n")
+	metrics := strings.TrimSuffix(string(data), Separator())
+	metricsData := strings.Split(metrics, Separator())
 
 	var reqMetricLen bool
 	if p.metricNumber == 0 {
@@ -100,6 +101,7 @@ func TestInc(t *testing.T) {
 
 	SetOutput(file)
 	SetFormat("%v = %v")
+	SetSeparator("\n")
 
 	testCounter(t, testCounterParams{
 		metricName:     "simple_counter1",
@@ -113,9 +115,9 @@ func TestInc(t *testing.T) {
 func TestAdd(t *testing.T) {
 	file := newTestFile(t, "test_add")
 	defer closeAndRemoveTestFile(t, file)
-
 	SetOutput(file)
 	SetFormat("%v = %v")
+	SetSeparator("\n")
 
 	testCounter(t, testCounterParams{
 		metricName:     "simple_adder",
