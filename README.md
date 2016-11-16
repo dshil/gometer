@@ -18,15 +18,23 @@ Install [Go](https://golang.org/) and run:
 
 Let's print our metrics to Stdout.
 ```go
+package example
+
+import (
+	"os"
+
+	"github.com/dshil/gometer"
+)
+
 func ExampleWriteToStdout() {
-	m := New()
-	m.SetOutput(os.Stdout)
-	c := m.NewCounter("err_cnt")
+	metric := gometer.New()
+	metric.SetOutput(os.Stdout)
+	c := metric.NewCounter("num_counter")
 	c.Inc()
 
-	m.Write()
+	metric.Write()
 	// Output:
-	// err_cnt = 1
+	// num_counter = 1
 }
 ```
 

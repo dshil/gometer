@@ -34,14 +34,3 @@ func testWriteAtFile(t *testing.T, fileName, separator string, expMetricsCnt int
 	metricsData := strings.Split(metrics, separator)
 	require.Equal(t, expMetricsCnt, len(metricsData))
 }
-
-func ExampleWriteToStdout() {
-	m := New()
-	m.SetOutput(os.Stdout)
-	c := m.NewCounter("err_cnt")
-	c.Inc()
-
-	m.Write()
-	// Output:
-	// err_cnt = 1
-}
