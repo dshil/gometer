@@ -9,9 +9,7 @@ import (
 	"time"
 )
 
-// Metric allows to add counters, incrementors,
-// writes all metrics to out.
-type Metric struct {
+type metric struct {
 	mu             sync.Mutex
 	out            io.Writer
 	updateInterval time.Duration
@@ -20,62 +18,91 @@ type Metric struct {
 	separator      string
 }
 
-var std = New(os.Stderr, 0)
+var std = New()
 
 // New returns new basic metric.
 //
 // out defines where to flush corresponding metric.
+// stderr is a default output destination
 //
-// updateInterval defines how often metric will be flushed to out.
+// updateInterval defines how often metric will be flushed
+// to output destination.
 //
-// updateInterval = 0 means that metric will not be flushed to out,
-// in such case you need to manually call Write method.
-func New(out io.Writer, updateInterval time.Duration) *Metric {
-	m := &Metric{
-		out:            out,
-		updateInterval: updateInterval,
-		metrics:        make(map[string]Incrementor),
+// updateInterval = 0 means that metric will not be flushed to
+// output destination, in such case you need to flush metrics manually.
+// you can use Write method for it.
+//
+// separator determines how one metric will be separated from another
+// default separator is a newline symbol.
+//
+// format determines how format metric's name and metric's value
+// default format is 'metric_name = metric_value'.
+func New() *metric {
+	m := &metric{
+		out:       os.Stderr,
+		metrics:   make(map[string]Incrementor),
+		separator: "\n",
+		format:    "%v = %v",
 	}
 	return m
 }
 
 // SetOutput sets output destination for metric.
-func (m *Metric) SetOutput(out io.Writer) {
+func (m *metric) SetOutput(out io.Writer) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.out = out
 }
 
 // SetUpdateInterval sets updateInterval for metric.
-func (m *Metric) SetUpdateInterval(t time.Duration) {
+func (m *metric) SetUpdateInterval(t time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.updateInterval = t
 }
 
 // SetFormat sets printing format for metric.
-func (m *Metric) SetFormat(f string) {
+func (m *metric) SetFormat(f string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.format = f
 }
 
 // Write all existing metrics to output destination for metric.
-func (m *Metric) Write() error {
+func (m *metric) Write() error {
 	return write(m)
 }
 
+// WriteAtFile writes all metrics to clear file.
+func (m *metric) WriteAtFile(path string) error {
+	return writeAtFile(m, path)
+}
+
 // NewIncrementor returns new incrementor for metric.
-func (m *Metric) NewIncrementor(name string) Incrementor {
+func (m *metric) NewIncrementor(name string) Incrementor {
 	return newIncrementor(m, name)
 }
 
 // NewCounter returns new counter for metric.
-func (m *Metric) NewCounter(name string) Counter {
+func (m *metric) NewCounter(name string) Counter {
 	return newCounter(m, name)
 }
 
-func newIncrementor(m *Metric, metricName string) Incrementor {
+// SetSeparator sets metric's separator for metric.
+func (m *metric) SetSeparator(s string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.separator = s
+}
+
+// Separator returns metric's separator for metric.
+func (m *metric) Separator() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.separator
+}
+
+func newIncrementor(m *metric, metricName string) Incrementor {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -88,7 +115,7 @@ func newIncrementor(m *Metric, metricName string) Incrementor {
 	return inc
 }
 
-func newCounter(m *Metric, metricName string) Counter {
+func newCounter(m *metric, metricName string) Counter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -96,7 +123,7 @@ func newCounter(m *Metric, metricName string) Counter {
 		value: value{},
 	}
 
-	std.metrics[metricName] = c
+	m.metrics[metricName] = c
 
 	return c
 }
@@ -131,31 +158,29 @@ func Write() error {
 	return write(std)
 }
 
-func WriteAtFile(fileName string) error {
-	file, err := os.Create(fileName)
+// WriteAtFile writes all metrics of standard metric to clear file.
+func WriteAtFile(path string) error {
+	return writeAtFile(std, path)
+}
+
+func writeAtFile(m *metric, path string) error {
+	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	SetOutput(file)
-	return write(std)
+	m.SetOutput(file)
+	return write(m)
 }
 
-func write(m *Metric) error {
+func write(m *metric) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var sep string
-	if m.separator == "" {
-		sep = "\n"
-	} else {
-		sep = m.separator
-	}
-
 	var buf bytes.Buffer
-	for name, val := range std.metrics {
-		fmt.Fprintf(&buf, m.format+sep, name, val.Value())
+	for name, val := range m.metrics {
+		fmt.Fprintf(&buf, m.format+m.separator, name, val.Value())
 	}
 
 	if _, err := m.out.Write(buf.Bytes()); err != nil {
