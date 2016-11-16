@@ -9,6 +9,5 @@ before_install:
   - go get github.com/stretchr/testify/assert
 
 script:
-  - go get -v -t . ./_examples
-  - go test ./_examples
+  - go test -v ./...
   
