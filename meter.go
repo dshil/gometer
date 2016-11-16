@@ -10,6 +10,14 @@ import (
 	"time"
 )
 
+const (
+	TotalHTTPRequests                = "http_request_total"
+	TotalFailedHTTPRequests          = "http_request_failed_total"
+	TotalActiveHTTPRequests          = "http_request_active_total"
+	TotalBytes                       = "bytes_total"
+	TotalHTTPRequestsDurationSeconds = "http_request_duration_seconds_total"
+)
+
 type metric struct {
 	mu        sync.Mutex
 	out       io.Writer
