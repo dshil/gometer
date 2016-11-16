@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"sync"
 	"time"
 )
@@ -18,6 +17,7 @@ type Metric struct {
 	updateInterval time.Duration
 	format         string
 	metrics        map[string]Incrementor
+	separator      string
 }
 
 var std = New(os.Stderr, 0)
@@ -60,6 +60,7 @@ func (m *Metric) SetFormat(f string) {
 	m.format = f
 }
 
+// Write all existing metrics to output destination for metric.
 func (m *Metric) Write() error {
 	return write(m)
 }
@@ -121,7 +122,7 @@ func SetFormat(f string) {
 	std.format = f
 }
 
-// Write all existing metrics output destination for standard metric.
+// Write all existing metrics to output destination for standard metric.
 func Write() error {
 	return write(std)
 }
@@ -130,13 +131,19 @@ func write(m *Metric) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var buf bytes.Buffer
-	for name, val := range std.metrics {
-		fmt.Fprintf(&buf, m.format+"\n", name, val.Value())
+	var sep string
+	if m.separator == "" {
+		sep = "\n"
+	} else {
+		sep = m.separator
 	}
 
-	data := strings.TrimSuffix(buf.String(), "\n")
-	if _, err := m.out.Write([]byte(data)); err != nil {
+	var buf bytes.Buffer
+	for name, val := range std.metrics {
+		fmt.Fprintf(&buf, m.format+sep, name, val.Value())
+	}
+
+	if _, err := m.out.Write(buf.Bytes()); err != nil {
 		return err
 	}
 	return nil
@@ -150,4 +157,18 @@ func NewIncrementor(name string) Incrementor {
 // NewCounter returns new counter for standard metric.
 func NewCounter(name string) Counter {
 	return newCounter(std, name)
+}
+
+// SetSeparator sets metric's separator for standard metric.
+func SetSeparator(s string) {
+	std.mu.Lock()
+	defer std.mu.Unlock()
+	std.separator = s
+}
+
+// Separator returns metric's separator for standard metric.
+func Separator() string {
+	std.mu.Lock()
+	defer std.mu.Unlock()
+	return std.separator
 }
