@@ -1,4 +1,5 @@
-# gometer
+# gometer [![GoDoc](https://godoc.org/github.com/dshil/gometer?status.svg)](https://godoc.org/github.com/dshil/gometer)
+
 
 `gometer` is a small library for your application's metrics.
 
@@ -14,6 +15,22 @@ Install [Go](https://golang.org/) and run:
 
 
 ## Quick start
+
+Let's print our metrics to Stdout.
+```go
+func ExampleWriteToStdout() {
+	m := New()
+	m.SetOutput(os.Stdout)
+	c := m.NewCounter("err_cnt")
+	c.Inc()
+
+	m.Write()
+	// Output:
+	// err_cnt = 1
+}
+```
+
+More complex example. Write our metrics to file.
 
 ```go
 package example
