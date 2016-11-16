@@ -168,6 +168,10 @@ func newIncrementor(m *metric, metricName string) Incrementor {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if i, ok := m.incrementors[metricName]; ok {
+		return i
+	}
+
 	inc := &incrementor{
 		value: value{},
 	}
@@ -180,6 +184,10 @@ func newIncrementor(m *metric, metricName string) Incrementor {
 func newCounter(m *metric, metricName string) Counter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if c, ok := m.counters[metricName]; ok {
+		return c
+	}
 
 	c := &counter{
 		value: value{},
@@ -236,6 +244,10 @@ func write(m *metric) error {
 
 	var buf bytes.Buffer
 	for name, val := range m.counters {
+		fmt.Fprintf(&buf, m.format+m.separator, name, val.Value())
+	}
+
+	for name, val := range m.incrementors {
 		fmt.Fprintf(&buf, m.format+m.separator, name, val.Value())
 	}
 
