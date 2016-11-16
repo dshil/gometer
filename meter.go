@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"sync"
 	"time"
 )
 
 type metric struct {
-	mu             sync.Mutex
-	out            io.Writer
-	updateInterval time.Duration
-	format         string
-	metrics        map[string]Incrementor
-	separator      string
+	mu           sync.Mutex
+	out          io.Writer
+	format       string
+	counters     map[string]Counter
+	incrementors map[string]Incrementor
+	separator    string
 }
 
 var std = New()
@@ -25,8 +26,6 @@ var std = New()
 // out defines where to flush corresponding metric.
 // stderr is a default output destination
 //
-// updateInterval defines how often metric will be flushed
-// to output destination.
 //
 // updateInterval = 0 means that metric will not be flushed to
 // output destination, in such case you need to flush metrics manually.
@@ -39,10 +38,11 @@ var std = New()
 // default format is 'metric_name = metric_value'.
 func New() *metric {
 	m := &metric{
-		out:       os.Stderr,
-		metrics:   make(map[string]Incrementor),
-		separator: "\n",
-		format:    "%v = %v",
+		out:          os.Stderr,
+		counters:     make(map[string]Counter),
+		incrementors: make(map[string]Incrementor),
+		separator:    "\n",
+		format:       "%v = %v",
 	}
 	return m
 }
@@ -52,13 +52,6 @@ func (m *metric) SetOutput(out io.Writer) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.out = out
-}
-
-// SetUpdateInterval sets updateInterval for metric.
-func (m *metric) SetUpdateInterval(t time.Duration) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.updateInterval = t
 }
 
 // SetFormat sets printing format for metric.
@@ -73,9 +66,78 @@ func (m *metric) Write() error {
 	return write(m)
 }
 
+// Stopper allows to stop writing metrics to file.
+type Stopper struct {
+	Stop func()
+}
+
 // WriteAtFile writes all metrics to clear file.
-func (m *metric) WriteAtFile(path string) error {
-	return writeAtFile(m, path)
+//
+// updateInterval determines how often metric will be write
+// to file.
+// use Stopper to stop writing metrics periodically to file.
+func (m *metric) WriteAtFile(path string, updateInterval time.Duration, runImmediately bool) *Stopper {
+	return writeAtFile(m, path, updateInterval, runImmediately)
+}
+
+func writeAtFile(m *metric, path string, updateInterval time.Duration, runImmediately bool) *Stopper {
+	stopCh := make(chan bool, 1)
+
+	once := sync.Once{}
+	s := &Stopper{
+		Stop: func() {
+			once.Do(func() {
+				stopCh <- true
+			})
+		},
+	}
+
+	params := fileWriterParams{
+		stopCh:         stopCh,
+		path:           path,
+		updateInterval: updateInterval,
+		metric:         m,
+		runImmediately: runImmediately,
+	}
+	go runFileWriter(params)
+	return s
+}
+
+type fileWriterParams struct {
+	stopCh         chan bool
+	path           string
+	updateInterval time.Duration
+	metric         *metric
+	runImmediately bool
+}
+
+func runFileWriter(p fileWriterParams) {
+	defer func() {
+		if e := recover(); e != nil {
+			log.Printf("faile to write a file %v, recovered, error: %v\n", p.path, e)
+		}
+	}()
+
+	if p.runImmediately {
+		if err := createAndWriteFile(p.metric, p.path); err != nil {
+			panic(err)
+		}
+	}
+
+	ticker := time.NewTicker(p.updateInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := createAndWriteFile(p.metric, p.path); err != nil {
+				panic(err)
+			}
+		case <-p.stopCh:
+			close(p.stopCh)
+			return
+		}
+	}
 }
 
 // NewIncrementor returns new incrementor for metric.
@@ -110,7 +172,7 @@ func newIncrementor(m *metric, metricName string) Incrementor {
 		value: value{},
 	}
 
-	m.metrics[metricName] = inc
+	m.incrementors[metricName] = inc
 
 	return inc
 }
@@ -123,7 +185,7 @@ func newCounter(m *metric, metricName string) Counter {
 		value: value{},
 	}
 
-	m.metrics[metricName] = c
+	m.counters[metricName] = c
 
 	return c
 }
@@ -133,13 +195,6 @@ func SetOutput(out io.Writer) {
 	std.mu.Lock()
 	defer std.mu.Unlock()
 	std.out = out
-}
-
-// SetUpdateInterval sets updateInterval for standard metric.
-func SetUpdateInterval(t time.Duration) {
-	std.mu.Lock()
-	defer std.mu.Unlock()
-	std.updateInterval = t
 }
 
 // SetFormat sets printing format for standard metric.
@@ -159,11 +214,12 @@ func Write() error {
 }
 
 // WriteAtFile writes all metrics of standard metric to clear file.
-func WriteAtFile(path string) error {
-	return writeAtFile(std, path)
+// it writes to file periodically, until you don't stop it.
+func WriteAtFile(path string, updateInterval time.Duration, runImmediately bool) *Stopper {
+	return writeAtFile(std, path, updateInterval, runImmediately)
 }
 
-func writeAtFile(m *metric, path string) error {
+func createAndWriteFile(m *metric, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
 		return err
@@ -179,7 +235,7 @@ func write(m *metric) error {
 	defer m.mu.Unlock()
 
 	var buf bytes.Buffer
-	for name, val := range m.metrics {
+	for name, val := range m.counters {
 		fmt.Fprintf(&buf, m.format+m.separator, name, val.Value())
 	}
 
