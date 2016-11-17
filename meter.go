@@ -10,6 +10,23 @@ import (
 	"time"
 )
 
+const (
+	// TotalHTTPRequests represents total number of http requests.
+	TotalHTTPRequests = "http_requests_total"
+
+	// TotalFailedHTTPRequests represents total number of failed requests.
+	TotalFailedHTTPRequests = "http_requests_failed_total"
+
+	// TotalActiveHTTPRequests represents requests that are still running.
+	TotalActiveHTTPRequests = "http_requests_active_total"
+
+	// TotalBytes represents total number of bytes sending through http
+	TotalBytes = "bytes_total"
+
+	// TotalHTTPRequestsDurationSeconds represents time duration in secods for all requests.
+	TotalHTTPRequestsDurationSeconds = "http_requests_duration_seconds_total"
+)
+
 type metric struct {
 	mu        sync.Mutex
 	out       io.Writer
@@ -112,7 +129,7 @@ type fileWriterParams struct {
 func runFileWriter(p fileWriterParams) {
 	defer func() {
 		if e := recover(); e != nil {
-			log.Printf("faile to write a file %v, recovered, err=%v\n", p.path, e)
+			log.Printf("failed to write to a file %v, err=%v\n", p.path, e)
 		}
 	}()
 
