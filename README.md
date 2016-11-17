@@ -3,9 +3,8 @@
 
 `gometer` is a small library for your application's metrics.
 
-It operates with two concepts: Incrementer and Counter.   
-`Incrementer` allows you to increment your metric by 1.   
-`Counter` is more general kind of metrics. It allows to increment, decrement, set value for your metrics.
+We use only one concept - `Counter`.   
+A `Counter` is a metric that represents a numerical value. You can increment, decrement, set, add this value.   
 
 ## Installation
 
@@ -30,7 +29,7 @@ func ExampleWriteToStdout() {
 	metric := gometer.New()
 	metric.SetOutput(os.Stdout)
 	c := metric.NewCounter("num_counter")
-	c.Inc()
+	c.Add(1)
 
 	metric.Write()
 	// Output:
@@ -97,16 +96,16 @@ func TestSimpleCounter(t *testing.T) {
 	gometer.SetSeparator("\n")
 
 	// init simple counter and increment it 10 times.
-	inc := gometer.NewIncrementor("number_incrementor")
+	inc := gometer.NewCounter("number_incrementor")
 	for i := 0; i < 10; i++ {
-		inc.Inc()
+		inc.Add(1)
 	}
-	assert.Equal(t, int64(10), inc.Value())
+	assert.Equal(t, int64(10), inc.Get())
 
 	dec := gometer.NewCounter("number_decrementor")
 	dec.Set(5)
-	dec.Dec()
-	assert.Equal(t, int64(4), dec.Value())
+	dec.Add(-1)
+	assert.Equal(t, int64(4), dec.Get())
 
 	// write all metrics to file.
 	err = gometer.Write()
@@ -127,12 +126,12 @@ func TestSimpleCounter(t *testing.T) {
 	// check the corresponding names and values for metrics.
 	checkMetric(t, checkMetricParams{
 		name:        "number_incrementor",
-		value:       inc.Value(),
+		value:       inc.Get(),
 		metricsData: metricsData,
 	})
 	checkMetric(t, checkMetricParams{
 		name:        "number_decrementor",
-		value:       dec.Value(),
+		value:       dec.Get(),
 		metricsData: metricsData,
 	})
 }
