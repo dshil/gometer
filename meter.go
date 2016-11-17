@@ -11,10 +11,19 @@ import (
 )
 
 const (
-	TotalHTTPRequests                = "http_request_total"
-	TotalFailedHTTPRequests          = "http_request_failed_total"
-	TotalActiveHTTPRequests          = "http_request_active_total"
-	TotalBytes                       = "bytes_total"
+	// TotalHTTPRequests represents total number of http requests.
+	TotalHTTPRequests = "http_request_total"
+
+	// TotalFailedHTTPRequests represents total number of failed requests.
+	TotalFailedHTTPRequests = "http_request_failed_total"
+
+	// TotalActiveHTTPRequests represents requests that are still running.
+	TotalActiveHTTPRequests = "http_request_active_total"
+
+	// TotalBytes represents total number of bytes sending through http
+	TotalBytes = "bytes_total"
+
+	// TotalHTTPRequestsDurationSeconds represents time duration in secods for all requests.
 	TotalHTTPRequestsDurationSeconds = "http_request_duration_seconds_total"
 )
 

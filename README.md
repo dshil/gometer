@@ -28,12 +28,12 @@ import (
 func ExampleWriteToStdout() {
 	metric := gometer.New()
 	metric.SetOutput(os.Stdout)
-	c := metric.NewCounter("num_counter")
+	c := metric.NewCounter(gometer.TotalHTTPRequests)
 	c.Add(1)
 
 	metric.Write()
 	// Output:
-	// num_counter = 1
+	// http_request_total = 1
 }
 ```
 
