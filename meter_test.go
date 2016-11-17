@@ -20,7 +20,7 @@ func TestWriteToFile(t *testing.T) {
 	stopper := m.WriteToFile(fileName, time.Second*10, true)
 	testWriteAtFile(t, testWriteAtFileParams{
 		fileName:     fileName,
-		separator:    m.Separator(),
+		separator:    m.LineSeparator(),
 		expMetricCnt: 1,
 		waitDur:      time.Second * 1,
 		stopper:      stopper,
@@ -32,7 +32,7 @@ func TestWriteToFile(t *testing.T) {
 	stopper = m.WriteToFile(fileName, time.Second*10, true)
 	testWriteAtFile(t, testWriteAtFileParams{
 		fileName:     fileName,
-		separator:    m.Separator(),
+		separator:    m.LineSeparator(),
 		expMetricCnt: 2,
 		waitDur:      time.Second * 1,
 		stopper:      stopper,
@@ -44,7 +44,7 @@ type testWriteAtFileParams struct {
 	separator    string
 	expMetricCnt int
 	waitDur      time.Duration
-	stopper      *stopper
+	stopper      *Stopper
 }
 
 func testWriteAtFile(t *testing.T, p testWriteAtFileParams) {
