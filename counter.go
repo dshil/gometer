@@ -1,25 +1,31 @@
 package gometer
 
-// Counter represents a general counter that allows to:
-// increment, decrement, add, subtract, set the value.
+import "sync/atomic"
+
+// Counter represents a general counter.
 type Counter interface {
-	Incrementor
+	// Add adds the corresponding value to counter.
+	Add(val int64)
 
 	// Set sets the value to counter. Value can be negative.
 	Set(val int64)
 
-	// Dec decrements counter by 1.
-	Dec()
+	// Get returns the corresponding value for counter.
+	Get() int64
 }
 
 type counter struct {
-	value
+	val int64
 }
 
 func (c *counter) Add(val int64) {
-	c.value.Add(val)
+	atomic.AddInt64(&c.val, val)
+}
+
+func (c *counter) Get() int64 {
+	return atomic.LoadInt64(&c.val)
 }
 
 func (c *counter) Set(val int64) {
-	c.value.Set(val)
+	atomic.StoreInt64(&c.val, val)
 }

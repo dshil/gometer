@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWriteAtFile(t *testing.T) {
-	fileName := "test_write_at_file"
+func TestWriteToFile(t *testing.T) {
+	fileName := "test_write_to_file"
 	m := New()
 
-	inc := m.NewIncrementor("add_num")
+	inc := m.NewCounter("add_num")
 	inc.Add(10)
 
-	stopper := m.WriteAtFile(fileName, time.Second*10, true)
+	stopper := m.WriteToFile(fileName, time.Second*10, true)
 	testWriteAtFile(t, testWriteAtFileParams{
 		fileName:     fileName,
 		separator:    m.Separator(),
@@ -26,10 +26,10 @@ func TestWriteAtFile(t *testing.T) {
 		stopper:      stopper,
 	})
 
-	inc1 := m.NewIncrementor("inc_num")
-	inc1.Inc()
+	inc1 := m.NewCounter("inc_num")
+	inc1.Add(4)
 
-	stopper = m.WriteAtFile(fileName, time.Second*10, true)
+	stopper = m.WriteToFile(fileName, time.Second*10, true)
 	testWriteAtFile(t, testWriteAtFileParams{
 		fileName:     fileName,
 		separator:    m.Separator(),
