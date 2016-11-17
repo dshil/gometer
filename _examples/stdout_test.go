@@ -10,7 +10,7 @@ func ExampleWriteToStdout() {
 	metric := gometer.New()
 	metric.SetOutput(os.Stdout)
 	c := metric.NewCounter("num_counter")
-	c.Inc()
+	c.Add(1)
 
 	metric.Write()
 	// Output:

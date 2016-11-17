@@ -11,12 +11,11 @@ import (
 )
 
 type metric struct {
-	mu           sync.Mutex
-	out          io.Writer
-	format       string
-	counters     map[string]Counter
-	incrementors map[string]Incrementor
-	separator    string
+	mu        sync.Mutex
+	out       io.Writer
+	format    string
+	counters  map[string]Counter
+	separator string
 }
 
 var std = New()
@@ -38,11 +37,10 @@ var std = New()
 // default format is 'metric_name = metric_value'.
 func New() *metric {
 	m := &metric{
-		out:          os.Stderr,
-		counters:     make(map[string]Counter),
-		incrementors: make(map[string]Incrementor),
-		separator:    "\n",
-		format:       "%v = %v",
+		out:       os.Stderr,
+		counters:  make(map[string]Counter),
+		separator: "\n",
+		format:    "%v = %v",
 	}
 	return m
 }
@@ -71,16 +69,16 @@ type stopper struct {
 	Stop func()
 }
 
-// WriteAtFile writes all metrics to clear file.
+// WriteToFile writes all metrics to clear file.
 //
 // updateInterval determines how often metric will be write
 // to file.
 // use stopper to stop writing metrics periodically to file.
-func (m *metric) WriteAtFile(path string, updateInterval time.Duration, runImmediately bool) *stopper {
-	return writeAtFile(m, path, updateInterval, runImmediately)
+func (m *metric) WriteToFile(path string, updateInterval time.Duration, runImmediately bool) *stopper {
+	return writeToFile(m, path, updateInterval, runImmediately)
 }
 
-func writeAtFile(m *metric, path string, updateInterval time.Duration, runImmediately bool) *stopper {
+func writeToFile(m *metric, path string, updateInterval time.Duration, runImmediately bool) *stopper {
 	stopCh := make(chan bool, 1)
 
 	once := sync.Once{}
@@ -114,7 +112,7 @@ type fileWriterParams struct {
 func runFileWriter(p fileWriterParams) {
 	defer func() {
 		if e := recover(); e != nil {
-			log.Printf("faile to write a file %v, recovered, error: %v\n", p.path, e)
+			log.Printf("faile to write a file %v, recovered, err=%v\n", p.path, e)
 		}
 	}()
 
@@ -140,11 +138,6 @@ func runFileWriter(p fileWriterParams) {
 	}
 }
 
-// NewIncrementor returns new incrementor for metric.
-func (m *metric) NewIncrementor(name string) Incrementor {
-	return newIncrementor(m, name)
-}
-
 // NewCounter returns new counter for metric.
 func (m *metric) NewCounter(name string) Counter {
 	return newCounter(m, name)
@@ -164,23 +157,6 @@ func (m *metric) Separator() string {
 	return m.separator
 }
 
-func newIncrementor(m *metric, metricName string) Incrementor {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if i, ok := m.incrementors[metricName]; ok {
-		return i
-	}
-
-	inc := &incrementor{
-		value: value{},
-	}
-
-	m.incrementors[metricName] = inc
-
-	return inc
-}
-
 func newCounter(m *metric, metricName string) Counter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -189,10 +165,7 @@ func newCounter(m *metric, metricName string) Counter {
 		return c
 	}
 
-	c := &counter{
-		value: value{},
-	}
-
+	c := &counter{}
 	m.counters[metricName] = c
 
 	return c
@@ -221,10 +194,10 @@ func Write() error {
 	return write(std)
 }
 
-// WriteAtFile writes all metrics of standard metric to clear file.
+// WriteToFile writes all metrics of standard metric to clear file.
 // it writes to file periodically, until you don't stop it.
-func WriteAtFile(path string, updateInterval time.Duration, runImmediately bool) *stopper {
-	return writeAtFile(std, path, updateInterval, runImmediately)
+func WriteToFile(path string, updateInterval time.Duration, runImmediately bool) *stopper {
+	return writeToFile(std, path, updateInterval, runImmediately)
 }
 
 func createAndWriteFile(m *metric, path string) error {
@@ -244,22 +217,13 @@ func write(m *metric) error {
 
 	var buf bytes.Buffer
 	for name, val := range m.counters {
-		fmt.Fprintf(&buf, m.format+m.separator, name, val.Value())
-	}
-
-	for name, val := range m.incrementors {
-		fmt.Fprintf(&buf, m.format+m.separator, name, val.Value())
+		fmt.Fprintf(&buf, m.format+m.separator, name, val.Get())
 	}
 
 	if _, err := m.out.Write(buf.Bytes()); err != nil {
 		return err
 	}
 	return nil
-}
-
-// NewIncrementor returns new incrementor for standard metric.
-func NewIncrementor(name string) Incrementor {
-	return newIncrementor(std, name)
 }
 
 // NewCounter returns new counter for standard metric.
