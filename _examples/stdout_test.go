@@ -14,5 +14,5 @@ func ExampleWriteToStdout() {
 
 	metric.Write()
 	// Output:
-	// http_request_total = 1
+	// http_requests_total = 1
 }
