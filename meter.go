@@ -129,7 +129,7 @@ type fileWriterParams struct {
 func runFileWriter(p fileWriterParams) {
 	defer func() {
 		if e := recover(); e != nil {
-			log.Printf("faile to write a file %v, recovered, err=%v\n", p.path, e)
+			log.Printf("failed to write to a file %v, err=%v\n", p.path, e)
 		}
 	}()
 
