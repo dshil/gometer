@@ -2,7 +2,7 @@ package gometer
 
 import "sync/atomic"
 
-// Counter represents a one metric.
+// Counter represents a kind of metric.
 type Counter struct {
 	val int64
 }

@@ -13,17 +13,18 @@ import (
 func TestWriteToFile(t *testing.T) {
 	fileName := "test_write_to_file"
 	m := New()
+	m.SetFormatter(NewDefaultFormatter())
 
 	inc := m.NewCounter("add_num")
 	inc.Add(10)
 
 	stopper := m.WriteToFile(fileName, time.Second*10, true)
 	testWriteAtFile(t, testWriteAtFileParams{
-		fileName:     fileName,
-		separator:    m.LineSeparator(),
-		expMetricCnt: 1,
-		waitDur:      time.Second * 1,
-		stopper:      stopper,
+		fileName:      fileName,
+		lineSeparator: m.Formatter().LineSeparator,
+		expMetricCnt:  1,
+		waitDur:       time.Second * 1,
+		stopper:       stopper,
 	})
 
 	inc1 := m.NewCounter("inc_num")
@@ -31,25 +32,27 @@ func TestWriteToFile(t *testing.T) {
 
 	stopper = m.WriteToFile(fileName, time.Second*10, true)
 	testWriteAtFile(t, testWriteAtFileParams{
-		fileName:     fileName,
-		separator:    m.LineSeparator(),
-		expMetricCnt: 2,
-		waitDur:      time.Second * 1,
-		stopper:      stopper,
+		fileName:      fileName,
+		lineSeparator: m.Formatter().LineSeparator,
+		expMetricCnt:  2,
+		waitDur:       time.Second * 1,
+		stopper:       stopper,
 	})
 }
 
 type testWriteAtFileParams struct {
-	fileName     string
-	separator    string
+	fileName      string
+	lineSeparator string
+
 	expMetricCnt int
-	waitDur      time.Duration
-	stopper      *Stopper
+
+	waitDur time.Duration
+	stopper *Stopper
 }
 
 func testWriteAtFile(t *testing.T, p testWriteAtFileParams) {
 	time.Sleep(p.waitDur)
-	p.stopper.Stop()
+	defer p.stopper.Stop()
 
 	data, err := ioutil.ReadFile(p.fileName)
 	require.Nil(t, err)
@@ -57,7 +60,7 @@ func testWriteAtFile(t *testing.T, p testWriteAtFileParams) {
 	err = os.Remove(p.fileName)
 	require.Nil(t, err)
 
-	metrics := strings.TrimSuffix(string(data), p.separator)
-	metricsData := strings.Split(metrics, p.separator)
+	metrics := strings.TrimSuffix(string(data), p.lineSeparator)
+	metricsData := strings.Split(metrics, p.lineSeparator)
 	require.Equal(t, p.expMetricCnt, len(metricsData))
 }
