@@ -1,10 +1,7 @@
-# gometer [![GoDoc](https://godoc.org/github.com/dshil/gometer?status.svg)](https://godoc.org/github.com/dshil/gometer) [![Build Status](https://travis-ci.org/dshil/gometer.svg?branch=master)](https://travis-ci.org/dshil/gometer)
+# gometer [![GoDoc](https://godoc.org/github.com/dshil/gometer?status.svg)](https://godoc.org/github.com/dshil/gometer) [![Build Status](https://travis-ci.org/dshil/gometer.svg?branch=master)](https://travis-ci.org/dshil/gometer) [![Coverage Status](https://coveralls.io/repos/github/dshil/gometer/badge.svg?branch=formatter-interface)](https://coveralls.io/github/dshil/gometer?branch=formatter-interface)
 
 
 `gometer` is a small library for your application's metrics.
-
-We use only one concept - `Counter`.   
-A `Counter` is a metric that represents a numerical value. You can increment, decrement, set, add this value.   
 
 ## Installation
 
@@ -20,21 +17,25 @@ Let's print our metrics to Stdout.
 package example
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/dshil/gometer"
 )
 
 func ExampleWriteToStdout() {
-	metric := gometer.New()
+	metrics := gometer.New()
 
-	metric.SetOutput(os.Stdout)
-	metric.SetFormatter(gometer.NewDefaultFormatter())
+	metrics.SetOutput(os.Stdout)
+	metrics.SetFormatter(gometer.NewFormatter("\n"))
 
-	c := metric.NewCounter("http_requests_total")
+	c := metrics.NewCounter("http_requests_total")
 	c.Add(1)
 
-	metric.Write()
+	if err := metrics.Write(); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 	// Output:
 	// http_requests_total = 1
 }
@@ -69,96 +70,88 @@ func ExampleSetFormatter() {
 }
 ```
 
-More complex example. Write our metrics to file.
+You also can define your own formatter for the metrics representation.
+It's pretty easy (thanks Go for its `interface`). Let's look at some examples.
 
 ```go
 package example
 
 import (
+	"bytes"
+	"fmt"
 	"os"
-	"strconv"
-	"strings"
-	"testing"
-
-	"io/ioutil"
+	"sort"
 
 	"github.com/dshil/gometer"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-type checkMetricParams struct {
-	name        string
-	value       int64
-	metricsData []string
+type simpleFormatter struct{}
+
+func (f *simpleFormatter) Format(counters map[string]*gometer.Counter) []byte {
+	var buf bytes.Buffer
+	for name, counter := range counters {
+		line := fmt.Sprintf("%v, %v", name, counter.Get()) + "\n"
+		fmt.Fprint(&buf, line)
+	}
+	return buf.Bytes()
 }
 
-func checkMetric(t *testing.T, p checkMetricParams) {
-	for _, m := range p.metricsData {
-		metric := strings.Split(m, " = ")
-		require.Equal(t, 2, len(metric))
+func ExampleSimpleFormatter() {
+	metrics := gometer.New()
+	metrics.SetOutput(os.Stdout)
+	metrics.SetFormatter(new(simpleFormatter))
 
-		metricName := metric[0]
-		if metricName == p.name {
-			// check value
-			metricVal := metric[1]
-			val, err := strconv.Atoi(metricVal)
-			require.Nil(t, err)
-			assert.Equal(t, p.value, int64(val))
-		}
+	c := metrics.NewCounter("http_requests_total")
+	c.Add(100)
+
+	if err := metrics.Write(); err != nil {
+		fmt.Println(err.Error())
+		return
 	}
+	// Output: http_requests_total, 100
 }
 
-func TestSimpleCounter(t *testing.T) {
-	// init test file where to dump all metrics.
-	fileName := "test_file"
-	file, err := os.Create(fileName)
-	require.Nil(t, err)
-	defer file.Close()
-	defer os.Remove(fileName)
+type sortByNameFormatter struct{}
 
-	// make some preparation for standard gometer.
-	gometer.SetOutput(file)
-	gometer.SetFormatter(gometer.NewDefaultFormatter())
+func (f *sortByNameFormatter) Format(counters map[string]*gometer.Counter) []byte {
+	var buf bytes.Buffer
 
-	// init simple counter and increment it 10 times.
-	inc := gometer.NewCounter("number_incrementor")
-	for i := 0; i < 10; i++ {
-		inc.Add(1)
+	var names []string
+	for name := range counters {
+		names = append(names, name)
 	}
-	assert.Equal(t, int64(10), inc.Get())
 
-	dec := gometer.NewCounter("number_decrementor")
-	dec.Set(5)
-	dec.Add(-1)
-	assert.Equal(t, int64(4), dec.Get())
+	sort.Strings(names)
 
-	// write all metrics to file.
-	err = gometer.Write()
-	require.Nil(t, err)
+	for _, n := range names {
+		line := fmt.Sprintf("%v: %v", n, counters[n].Get()) + "\n"
+		fmt.Fprintf(&buf, line)
+	}
 
-	// need to check if file contains the right values for metrics.
-	data, err := ioutil.ReadFile(fileName)
-	require.Nil(t, err)
+	return buf.Bytes()
+}
 
-	// metrics are splitted using \n separator.
-	// need to trim separator from last line of the file.
-	metrics := strings.TrimSuffix(string(data), gometer.Formatter().LineSeparator)
-	metricsData := strings.Split(metrics, gometer.Formatter().LineSeparator)
+func ExampleSortByNameFormatter() {
+	metrics := gometer.New()
+	metrics.SetOutput(os.Stdout)
+	metrics.SetFormatter(new(sortByNameFormatter))
 
-	// we have only 2 metrics in the file.
-	require.Equal(t, 2, len(metricsData))
+	adder := metrics.NewCounter("adder")
+	adder.Add(10)
 
-	// check the corresponding names and values for metrics.
-	checkMetric(t, checkMetricParams{
-		name:        "number_incrementor",
-		value:       inc.Get(),
-		metricsData: metricsData,
-	})
-	checkMetric(t, checkMetricParams{
-		name:        "number_decrementor",
-		value:       dec.Get(),
-		metricsData: metricsData,
-	})
+	setter := metrics.NewCounter("setter")
+	setter.Set(-1)
+
+	inc := metrics.NewCounter("inc")
+	inc.Add(1)
+
+	if err := metrics.Write(); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	// Output:
+	// adder: 10
+	// inc: 1
+	// setter: -1
 }
 ```

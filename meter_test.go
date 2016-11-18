@@ -7,21 +7,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestWriteToFile(t *testing.T) {
+func TestMetricsWriteToFile(t *testing.T) {
 	fileName := "test_write_to_file"
 	m := New()
-	m.SetFormatter(NewDefaultFormatter())
+	m.SetFormatter(NewFormatter("\n"))
 
 	inc := m.NewCounter("add_num")
 	inc.Add(10)
 
 	stopper := m.WriteToFile(fileName, time.Second*10, true)
-	testWriteAtFile(t, testWriteAtFileParams{
+	testWriteToFile(t, testWriteToFileParams{
 		fileName:      fileName,
-		lineSeparator: m.Formatter().LineSeparator,
+		lineSeparator: "\n",
 		expMetricCnt:  1,
 		waitDur:       time.Second * 1,
 		stopper:       stopper,
@@ -31,16 +32,16 @@ func TestWriteToFile(t *testing.T) {
 	inc1.Add(4)
 
 	stopper = m.WriteToFile(fileName, time.Second*10, true)
-	testWriteAtFile(t, testWriteAtFileParams{
+	testWriteToFile(t, testWriteToFileParams{
 		fileName:      fileName,
-		lineSeparator: m.Formatter().LineSeparator,
+		lineSeparator: "\n",
 		expMetricCnt:  2,
 		waitDur:       time.Second * 1,
 		stopper:       stopper,
 	})
 }
 
-type testWriteAtFileParams struct {
+type testWriteToFileParams struct {
 	fileName      string
 	lineSeparator string
 
@@ -50,7 +51,7 @@ type testWriteAtFileParams struct {
 	stopper *Stopper
 }
 
-func testWriteAtFile(t *testing.T, p testWriteAtFileParams) {
+func testWriteToFile(t *testing.T, p testWriteToFileParams) {
 	time.Sleep(p.waitDur)
 	defer p.stopper.Stop()
 
@@ -63,4 +64,43 @@ func testWriteAtFile(t *testing.T, p testWriteAtFileParams) {
 	metrics := strings.TrimSuffix(string(data), p.lineSeparator)
 	metricsData := strings.Split(metrics, p.lineSeparator)
 	require.Equal(t, p.expMetricCnt, len(metricsData))
+}
+
+func TestMetricsSetFormatter(t *testing.T) {
+	fileName := "test_set_formatter"
+	file := newTestFile(t, fileName)
+	defer closeAndRemoveTestFile(t, file)
+
+	metrics := New()
+	metrics.SetOutput(file)
+	metrics.SetFormatter(NewFormatter("\n"))
+
+	c := metrics.NewCounter("test_counter")
+	c.Add(10)
+
+	err := metrics.Write()
+	require.Nil(t, err)
+
+	data, err := ioutil.ReadFile(fileName)
+	require.Nil(t, err)
+	metricsData := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
+	require.Equal(t, 1, len(metricsData))
+
+	metricLine := strings.Split(metricsData[0], " = ")
+	require.Equal(t, 2, len(metricLine))
+	assert.Equal(t, "test_counter", metricLine[0])
+	assert.Equal(t, "10", metricLine[1])
+}
+
+func newTestFile(t *testing.T, fileName string) *os.File {
+	file, err := os.Create(fileName)
+	require.Nil(t, err)
+	return file
+}
+
+func closeAndRemoveTestFile(t *testing.T, f *os.File) {
+	err := f.Close()
+	require.Nil(t, err)
+	err = os.Remove(f.Name())
+	require.Nil(t, err)
 }

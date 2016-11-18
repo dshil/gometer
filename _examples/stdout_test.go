@@ -1,21 +1,25 @@
 package example
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/dshil/gometer"
 )
 
 func ExampleWriteToStdout() {
-	metric := gometer.New()
+	metrics := gometer.New()
 
-	metric.SetOutput(os.Stdout)
-	metric.SetFormatter(gometer.NewDefaultFormatter())
+	metrics.SetOutput(os.Stdout)
+	metrics.SetFormatter(gometer.NewFormatter("\n"))
 
-	c := metric.NewCounter("http_requests_total")
+	c := metrics.NewCounter("http_requests_total")
 	c.Add(1)
 
-	metric.Write()
+	if err := metrics.Write(); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 	// Output:
 	// http_requests_total = 1
 }
