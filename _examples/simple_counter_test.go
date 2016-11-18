@@ -51,7 +51,7 @@ func TestSimpleCounter(t *testing.T) {
 	gometer.SetFormat("%v = %v")
 
 	// each metric line will be separated by \n.
-	gometer.SetSeparator("\n")
+	gometer.SetLineSeparator("\n")
 
 	// init simple counter and increment it 10 times.
 	inc := gometer.NewCounter("number_incrementor")
@@ -75,8 +75,8 @@ func TestSimpleCounter(t *testing.T) {
 
 	// metrics are splitted using \n separator.
 	// need to trim separator from last line of the file.
-	metrics := strings.TrimSuffix(string(data), gometer.Separator())
-	metricsData := strings.Split(metrics, gometer.Separator())
+	metrics := strings.TrimSuffix(string(data), gometer.LineSeparator())
+	metricsData := strings.Split(metrics, gometer.LineSeparator())
 
 	// we have only 2 metrics in file.
 	require.Equal(t, 2, len(metricsData))

@@ -4,102 +4,93 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
 	"time"
 )
 
-const (
-	// TotalHTTPRequests represents total number of http requests.
-	TotalHTTPRequests = "http_requests_total"
-
-	// TotalFailedHTTPRequests represents total number of failed requests.
-	TotalFailedHTTPRequests = "http_requests_failed_total"
-
-	// TotalActiveHTTPRequests represents requests that are still running.
-	TotalActiveHTTPRequests = "http_requests_active_total"
-
-	// TotalBytes represents total number of bytes sending through http
-	TotalBytes = "bytes_total"
-
-	// TotalHTTPRequestsDurationSeconds represents time duration in secods for all requests.
-	TotalHTTPRequestsDurationSeconds = "http_requests_duration_seconds_total"
-)
-
-type metric struct {
+// Metrics is a collection of counters.
+type Metrics struct {
 	mu        sync.Mutex
 	out       io.Writer
 	format    string
-	counters  map[string]Counter
+	counters  map[string]*Counter
 	separator string
 }
 
 var std = New()
 
-// New returns new basic metric.
+// New returns new emtpy collection of counters.
 //
-// out defines where to flush corresponding metric.
-// stderr is a default output destination
+// out defines where to dump corresponding metrics.
+// stderr is a default output destination.
 //
-//
-// updateInterval = 0 means that metric will not be flushed to
-// output destination, in such case you need to flush metrics manually.
-// you can use Write method for it.
-//
-// separator determines how one metric will be separated from another
+// separator determines how one metric will be separated from another.
 // default separator is a newline symbol.
 //
-// format determines how format metric's name and metric's value
+// format determines how metric's name and metric's value
+// will be dumped to output destination.
 // default format is 'metric_name = metric_value'.
-func New() *metric {
-	m := &metric{
+func New() *Metrics {
+	m := &Metrics{
 		out:       os.Stderr,
-		counters:  make(map[string]Counter),
+		counters:  make(map[string]*Counter),
 		separator: "\n",
 		format:    "%v = %v",
 	}
 	return m
 }
 
-// SetOutput sets output destination for metric.
-func (m *metric) SetOutput(out io.Writer) {
+// SetOutput sets output destination for standard metric.
+// Default output destination is os.Stderr.
+func (m *Metrics) SetOutput(out io.Writer) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.out = out
 }
 
-// SetFormat sets printing format for metric.
-func (m *metric) SetFormat(f string) {
+// SetFormat sets printing format.
+//
+// Can be used any format that contains two values in a string representation.
+// Each metric is a key-value pair.
+//
+// Examples of valid formats: "%v = %v"; "%v:%v"; "%v, %v".
+// Examples of invalid formats: "%v"; "%v ="; "%v, ".
+//
+// Default format is: "%v = %v".
+func (m *Metrics) SetFormat(f string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.format = f
 }
 
-// Write all existing metrics to output destination for metric.
-func (m *metric) Write() error {
+// Write all existing metrics to output destination.
+//
+// Writing metrics to the file using this method will not recreate a file.
+// it just append existing metrics to existing file's data.
+// if you want to write metrics to clear file use WriteAtFile() method.
+func (m *Metrics) Write() error {
 	return write(m)
 }
 
-// stopper allows to stop writing metrics to file.
-type stopper struct {
+// Stopper allows to stop writing metrics to file.
+type Stopper struct {
 	Stop func()
 }
 
 // WriteToFile writes all metrics to clear file.
 //
-// updateInterval determines how often metric will be write
-// to file.
+// updateInterval determines how often metric will be write to file.
 // use stopper to stop writing metrics periodically to file.
-func (m *metric) WriteToFile(path string, updateInterval time.Duration, runImmediately bool) *stopper {
+func (m *Metrics) WriteToFile(path string, updateInterval time.Duration, runImmediately bool) *Stopper {
 	return writeToFile(m, path, updateInterval, runImmediately)
 }
 
-func writeToFile(m *metric, path string, updateInterval time.Duration, runImmediately bool) *stopper {
+func writeToFile(m *Metrics, path string, updateInterval time.Duration, runImmediately bool) *Stopper {
 	stopCh := make(chan bool, 1)
 
 	once := sync.Once{}
-	s := &stopper{
+	s := &Stopper{
 		Stop: func() {
 			once.Do(func() {
 				stopCh <- true
@@ -122,25 +113,20 @@ type fileWriterParams struct {
 	stopCh         chan bool
 	path           string
 	updateInterval time.Duration
-	metric         *metric
+	metric         *Metrics
 	runImmediately bool
 }
 
 func runFileWriter(p fileWriterParams) {
-	defer func() {
-		if e := recover(); e != nil {
-			log.Printf("failed to write to a file %v, err=%v\n", p.path, e)
-		}
-	}()
+	ticker := time.NewTicker(p.updateInterval)
+	defer ticker.Stop()
+	defer close(p.stopCh)
 
 	if p.runImmediately {
 		if err := createAndWriteFile(p.metric, p.path); err != nil {
 			panic(err)
 		}
 	}
-
-	ticker := time.NewTicker(p.updateInterval)
-	defer ticker.Stop()
 
 	for {
 		select {
@@ -149,46 +135,78 @@ func runFileWriter(p fileWriterParams) {
 				panic(err)
 			}
 		case <-p.stopCh:
-			defer close(p.stopCh)
 			return
 		}
 	}
 }
 
-// NewCounter returns new counter for metric.
-func (m *metric) NewCounter(name string) Counter {
+func createAndWriteFile(m *Metrics, path string) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	m.SetOutput(file)
+	return write(m)
+}
+
+func write(m *Metrics) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var buf bytes.Buffer
+	for name, counter := range m.counters {
+		metric := fmt.Sprintf(m.format, name, counter.Get()) + m.separator
+		fmt.Fprint(&buf, metric)
+	}
+
+	if _, err := m.out.Write(buf.Bytes()); err != nil {
+		return err
+	}
+	return nil
+}
+
+// NewCounter creates new counter in metric collection and returns it.
+func (m *Metrics) NewCounter(name string) *Counter {
 	return newCounter(m, name)
 }
 
-// SetSeparator sets metric's separator for metric.
-func (m *metric) SetSeparator(s string) {
+func newCounter(m *Metrics, counterName string) *Counter {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if c, ok := m.counters[counterName]; ok {
+		return c
+	}
+
+	c := &Counter{}
+	m.counters[counterName] = c
+
+	return c
+}
+
+// SetLineSeparator determines how one metric will be separated from another.
+// As line separator can be used any symbol: e.g. '\n', ':', '.', ','.
+//
+// Default line separator is: "\n".
+func (m *Metrics) SetLineSeparator(s string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.separator = s
 }
 
-// Separator returns metric's separator for metric.
-func (m *metric) Separator() string {
+// LineSeparator returns a line separator.
+func (m *Metrics) LineSeparator() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.separator
 }
 
-func newCounter(m *metric, metricName string) Counter {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if c, ok := m.counters[metricName]; ok {
-		return c
-	}
-
-	c := &counter{}
-	m.counters[metricName] = c
-
-	return c
-}
+// These functions are used for standard metric.
 
 // SetOutput sets output destination for standard metric.
+// Default output destination is os.Stderr.
 func SetOutput(out io.Writer) {
 	std.mu.Lock()
 	defer std.mu.Unlock()
@@ -196,6 +214,14 @@ func SetOutput(out io.Writer) {
 }
 
 // SetFormat sets printing format for standard metric.
+//
+// Can be used any format that contains two values in string representation.
+// Each metric is a key-value pair.
+//
+// Examples of valid formats: "%v = %v"; "%v:%v"; "%v, %v".
+// Examples of invalid formats: "%v"; "%v ="; "%v, ".
+//
+// Default format is: "%v = %v".
 func SetFormat(f string) {
 	std.mu.Lock()
 	defer std.mu.Unlock()
@@ -211,52 +237,31 @@ func Write() error {
 	return write(std)
 }
 
-// WriteToFile writes all metrics of standard metric to clear file.
-// it writes to file periodically, until you don't stop it.
-func WriteToFile(path string, updateInterval time.Duration, runImmediately bool) *stopper {
+// WriteToFile writes all metrics to clear file for standard metric.
+//
+// updateInterval determines how often metric will be write to file.
+// use stopper to stop writing metrics periodically to file.
+func WriteToFile(path string, updateInterval time.Duration, runImmediately bool) *Stopper {
 	return writeToFile(std, path, updateInterval, runImmediately)
 }
 
-func createAndWriteFile(m *metric, path string) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	m.SetOutput(file)
-	return write(m)
-}
-
-func write(m *metric) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	var buf bytes.Buffer
-	for name, val := range m.counters {
-		fmt.Fprintf(&buf, m.format+m.separator, name, val.Get())
-	}
-
-	if _, err := m.out.Write(buf.Bytes()); err != nil {
-		return err
-	}
-	return nil
-}
-
 // NewCounter returns new counter for standard metric.
-func NewCounter(name string) Counter {
+func NewCounter(name string) *Counter {
 	return newCounter(std, name)
 }
 
-// SetSeparator sets metric's separator for standard metric.
-func SetSeparator(s string) {
+// SetLineSeparator determines how one metric will be separated from another.
+// As line separator can be used any symbol: e.g. '\n', ':', '.', ','.
+//
+// Default line separator is: "\n".
+func SetLineSeparator(s string) {
 	std.mu.Lock()
 	defer std.mu.Unlock()
 	std.separator = s
 }
 
-// Separator returns metric's separator for standard metric.
-func Separator() string {
+// LineSeparator returns metric's separator for standard metric.
+func LineSeparator() string {
 	std.mu.Lock()
 	defer std.mu.Unlock()
 	return std.separator
