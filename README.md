@@ -37,6 +37,35 @@ func ExampleWriteToStdout() {
 }
 ```
 
+Define own metrics's formatter.
+```go
+package example
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/dshil/gometer"
+)
+
+func ExampleSetFormatter() {
+	formatFn := func(names ...interface{}) string {
+		return fmt.Sprintf("%v = %v", names...)
+	}
+
+	m := gometer.New()
+	c := m.NewCounter("test_counter")
+	c.Set(1)
+	m.SetFormatter(gometer.FormatterParams{
+		LineSeparator: "\n",
+		LineFormatter: formatFn,
+	})
+	m.SetOutput(os.Stdout)
+	m.Write()
+	// Output: test_counter = 1
+}
+```
+
 More complex example. Write our metrics to file.
 
 ```go
@@ -87,13 +116,7 @@ func TestSimpleCounter(t *testing.T) {
 
 	// make some preparation for standard gometer.
 	gometer.SetOutput(file)
-
-	// choose a format of metric representation.
-	// e.g metric_name = metric_value.
-	gometer.SetFormat("%v = %v")
-
-	// each metric line will be separated by \n.
-	gometer.SetSeparator("\n")
+	gometer.SetFormatter(gometer.NewDefaultFormatter())
 
 	// init simple counter and increment it 10 times.
 	inc := gometer.NewCounter("number_incrementor")
@@ -117,10 +140,10 @@ func TestSimpleCounter(t *testing.T) {
 
 	// metrics are splitted using \n separator.
 	// need to trim separator from last line of the file.
-	metrics := strings.TrimSuffix(string(data), gometer.Separator())
-	metricsData := strings.Split(metrics, gometer.Separator())
+	metrics := strings.TrimSuffix(string(data), gometer.Formatter().LineSeparator)
+	metricsData := strings.Split(metrics, gometer.Formatter().LineSeparator)
 
-	// we have only 2 metrics in file.
+	// we have only 2 metrics in the file.
 	require.Equal(t, 2, len(metricsData))
 
 	// check the corresponding names and values for metrics.

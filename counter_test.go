@@ -18,23 +18,26 @@ func newTestFile(t *testing.T, fileName string) *os.File {
 }
 
 type testCounterParams struct {
-	metricName     string
-	operationID    string
-	fileName       string
+	counterName string
+	operationID string
+
+	fileName string
+
 	operationCount int
-	initialValue   int64
-	expectedValue  int
-	metricNumber   int
+	metricsCount   int
+
+	initialValue  int64
+	expectedValue int
 }
 
 func testCounter(t *testing.T, p testCounterParams) {
 	if p.operationID == "add" {
-		c := NewCounter(p.metricName)
+		c := NewCounter(p.counterName)
 		for i := 0; i < p.operationCount; i++ {
 			c.Add(p.initialValue)
 		}
 	} else if p.operationID == "set" {
-		c := NewCounter(p.metricName)
+		c := NewCounter(p.counterName)
 		for i := 0; i < p.operationCount; i++ {
 			c.Set(p.initialValue)
 		}
@@ -47,14 +50,14 @@ func testCounter(t *testing.T, p testCounterParams) {
 	data, err := ioutil.ReadFile(p.fileName)
 	require.Nil(t, err)
 
-	metrics := strings.TrimSuffix(string(data), LineSeparator())
-	metricsData := strings.Split(metrics, LineSeparator())
+	metrics := strings.TrimSuffix(string(data), Formatter().LineSeparator)
+	metricsData := strings.Split(metrics, Formatter().LineSeparator)
 
 	var reqMetricLen bool
-	if p.metricNumber == 0 {
+	if p.metricsCount == 0 {
 		reqMetricLen = len(metricsData) >= 1
 	} else {
-		reqMetricLen = (len(metricsData) == p.metricNumber)
+		reqMetricLen = (len(metricsData) == p.metricsCount)
 	}
 	require.True(t, reqMetricLen)
 
@@ -62,7 +65,7 @@ func testCounter(t *testing.T, p testCounterParams) {
 		metric := strings.Split(l, " = ")
 		require.True(t, len(metric) == 2)
 		metricName := metric[0]
-		if metricName == p.metricName {
+		if metricName == p.counterName {
 			// check the counter value
 			metricVal := metric[1]
 			val, err := strconv.Atoi(metricVal)
@@ -84,11 +87,9 @@ func TestAdd(t *testing.T) {
 	file := newTestFile(t, "test_add")
 	defer closeAndRemoveTestFile(t, file)
 	SetOutput(file)
-	SetFormat("%v = %v")
-	SetLineSeparator("\n")
 
 	testCounter(t, testCounterParams{
-		metricName:     "simple_adder",
+		counterName:    "simple_adder",
 		operationCount: 2,
 		operationID:    "add",
 		fileName:       file.Name(),
@@ -101,11 +102,9 @@ func TestSet(t *testing.T) {
 	file := newTestFile(t, "test_set_positive")
 	defer closeAndRemoveTestFile(t, file)
 	SetOutput(file)
-	SetLineSeparator("\n")
-	SetFormat("%v = %v")
 
 	testCounter(t, testCounterParams{
-		metricName:     "test_set_positive_val",
+		counterName:    "test_set_positive_val",
 		operationCount: 1,
 		operationID:    "set",
 		fileName:       file.Name(),
@@ -114,7 +113,7 @@ func TestSet(t *testing.T) {
 	})
 
 	testCounter(t, testCounterParams{
-		metricName:     "test_set_negative_val",
+		counterName:    "test_set_negative_val",
 		operationCount: 1,
 		operationID:    "set",
 		fileName:       file.Name(),

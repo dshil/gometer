@@ -9,39 +9,32 @@ import (
 	"time"
 )
 
-// Metrics is a collection of counters.
+// Metrics is a collection of metrics.
 type Metrics struct {
-	mu        sync.Mutex
-	out       io.Writer
-	format    string
-	counters  map[string]*Counter
-	separator string
+	mu              sync.Mutex
+	out             io.Writer
+	counters        map[string]*Counter
+	formatterParams FormatterParams
 }
 
 var std = New()
 
-// New returns new emtpy collection of counters.
+// New creates new empty collection of metrics.
 //
 // out defines where to dump corresponding metrics.
-// stderr is a default output destination.
 //
-// separator determines how one metric will be separated from another.
-// default separator is a newline symbol.
-//
-// format determines how metric's name and metric's value
-// will be dumped to output destination.
-// default format is 'metric_name = metric_value'.
+// formatterParams determines how metric's values
+// will be divided one from another.
 func New() *Metrics {
 	m := &Metrics{
-		out:       os.Stderr,
-		counters:  make(map[string]*Counter),
-		separator: "\n",
-		format:    "%v = %v",
+		out:             os.Stderr,
+		counters:        make(map[string]*Counter),
+		formatterParams: NewDefaultFormatter(),
 	}
 	return m
 }
 
-// SetOutput sets output destination for standard metric.
+// SetOutput sets output destination for metrics.
 // Default output destination is os.Stderr.
 func (m *Metrics) SetOutput(out io.Writer) {
 	m.mu.Lock()
@@ -49,26 +42,50 @@ func (m *Metrics) SetOutput(out io.Writer) {
 	m.out = out
 }
 
-// SetFormat sets printing format.
+// FormatterParams represents formatting parameters.
 //
-// Can be used any format that contains two values in a string representation.
-// Each metric is a key-value pair.
-//
-// Examples of valid formats: "%v = %v"; "%v:%v"; "%v, %v".
-// Examples of invalid formats: "%v"; "%v ="; "%v, ".
-//
-// Default format is: "%v = %v".
-func (m *Metrics) SetFormat(f string) {
+// LineSeparator determines how one metric will be separated from another.
+// LineFormatter determines how one line of metrics will be formatted.
+type FormatterParams struct {
+	LineSeparator string
+	LineFormatter func(args ...interface{}) string
+}
+
+// SetFormatter sets a metrics's formatter.
+func (m *Metrics) SetFormatter(params FormatterParams) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.format = f
+	m.formatterParams = params
+}
+
+// Formatter returns metrics's formatter.
+func (m *Metrics) Formatter() FormatterParams {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.formatterParams
+}
+
+// NewDefaultFormatter returns new default formatter.
+//
+// As line separator can be used any symbol: e.g. '\n', ':', '.', ','.
+// Default line separator is: "\n".
+//
+// Default format is: "%v = %v".
+func NewDefaultFormatter() FormatterParams {
+	p := FormatterParams{
+		LineSeparator: "\n",
+		LineFormatter: func(args ...interface{}) string {
+			return fmt.Sprintf("%v = %v", args...)
+		},
+	}
+	return p
 }
 
 // Write all existing metrics to output destination.
 //
 // Writing metrics to the file using this method will not recreate a file.
-// it just append existing metrics to existing file's data.
-// if you want to write metrics to clear file use WriteAtFile() method.
+// it appends existing metrics to existing file's data.
+// if you want to write metrics to clear file use WriteToFile() method.
 func (m *Metrics) Write() error {
 	return write(m)
 }
@@ -157,7 +174,8 @@ func write(m *Metrics) error {
 
 	var buf bytes.Buffer
 	for name, counter := range m.counters {
-		metric := fmt.Sprintf(m.format, name, counter.Get()) + m.separator
+		metric := m.formatterParams.LineFormatter(name, counter.Get()) +
+			m.formatterParams.LineSeparator
 		fmt.Fprint(&buf, metric)
 	}
 
@@ -167,7 +185,7 @@ func write(m *Metrics) error {
 	return nil
 }
 
-// NewCounter creates new counter in metric collection and returns it.
+// NewCounter creates new counter in metrics collection and returns it.
 func (m *Metrics) NewCounter(name string) *Counter {
 	return newCounter(m, name)
 }
@@ -186,26 +204,9 @@ func newCounter(m *Metrics, counterName string) *Counter {
 	return c
 }
 
-// SetLineSeparator determines how one metric will be separated from another.
-// As line separator can be used any symbol: e.g. '\n', ':', '.', ','.
-//
-// Default line separator is: "\n".
-func (m *Metrics) SetLineSeparator(s string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.separator = s
-}
+// These functions are used for standard metrics.
 
-// LineSeparator returns a line separator.
-func (m *Metrics) LineSeparator() string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.separator
-}
-
-// These functions are used for standard metric.
-
-// SetOutput sets output destination for standard metric.
+// SetOutput sets output destination for standard metrics.
 // Default output destination is os.Stderr.
 func SetOutput(out io.Writer) {
 	std.mu.Lock()
@@ -213,56 +214,34 @@ func SetOutput(out io.Writer) {
 	std.out = out
 }
 
-// SetFormat sets printing format for standard metric.
-//
-// Can be used any format that contains two values in string representation.
-// Each metric is a key-value pair.
-//
-// Examples of valid formats: "%v = %v"; "%v:%v"; "%v, %v".
-// Examples of invalid formats: "%v"; "%v ="; "%v, ".
-//
-// Default format is: "%v = %v".
-func SetFormat(f string) {
+// SetFormatter sets metrics representation formate.
+// Fore more details see Metrics.SetFormatter().
+func SetFormatter(params FormatterParams) {
 	std.mu.Lock()
 	defer std.mu.Unlock()
-	std.format = f
+	std.formatterParams = params
 }
 
-// Write all existing metrics to output destination for standard metric.
-//
-// Writing metrics to the file using this method will not recreate a file.
-// it just append existing metrics to existing file's data.
-// if you want to write metrics to clear file use WriteAtFile() method.
+// Formatter returns formatter for standard metrics.
+func Formatter() FormatterParams {
+	std.mu.Lock()
+	defer std.mu.Unlock()
+	return std.formatterParams
+}
+
+// Write all existing metrics to output destination.
+// For more details see Metrics.Write().
 func Write() error {
 	return write(std)
 }
 
-// WriteToFile writes all metrics to clear file for standard metric.
-//
-// updateInterval determines how often metric will be write to file.
-// use stopper to stop writing metrics periodically to file.
+// WriteToFile writes all metrics to clear file.
+// For more details see Metrics.WriteToFile() .
 func WriteToFile(path string, updateInterval time.Duration, runImmediately bool) *Stopper {
 	return writeToFile(std, path, updateInterval, runImmediately)
 }
 
-// NewCounter returns new counter for standard metric.
+// NewCounter returns new counter for standard metrics.
 func NewCounter(name string) *Counter {
 	return newCounter(std, name)
-}
-
-// SetLineSeparator determines how one metric will be separated from another.
-// As line separator can be used any symbol: e.g. '\n', ':', '.', ','.
-//
-// Default line separator is: "\n".
-func SetLineSeparator(s string) {
-	std.mu.Lock()
-	defer std.mu.Unlock()
-	std.separator = s
-}
-
-// LineSeparator returns metric's separator for standard metric.
-func LineSeparator() string {
-	std.mu.Lock()
-	defer std.mu.Unlock()
-	return std.separator
 }
