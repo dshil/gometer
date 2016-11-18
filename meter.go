@@ -7,6 +7,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/dchest/safefile"
 )
 
 // Metrics is a collection of metrics.
@@ -158,14 +160,25 @@ func runFileWriter(p fileWriterParams) {
 }
 
 func createAndWriteFile(m *Metrics, path string) error {
-	file, err := os.Create(path)
+	// create an empty temporary file.
+	file, err := safefile.Create(path, 0644)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	m.SetOutput(file)
-	return write(m)
+	if err = write(m); err != nil {
+		return err
+	}
+
+	// rename temporary file to existing.
+	// it's necessary for atomic file rewriting.
+	if err = file.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func write(m *Metrics) error {
