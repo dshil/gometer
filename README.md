@@ -41,36 +41,7 @@ func ExampleWriteToStdout() {
 }
 ```
 
-Define own metrics's formatter.
-```go
-package example
-
-import (
-	"fmt"
-	"os"
-
-	"github.com/dshil/gometer"
-)
-
-func ExampleSetFormatter() {
-	formatFn := func(names ...interface{}) string {
-		return fmt.Sprintf("%v = %v", names...)
-	}
-
-	m := gometer.New()
-	c := m.NewCounter("test_counter")
-	c.Set(1)
-	m.SetFormatter(gometer.FormatterParams{
-		LineSeparator: "\n",
-		LineFormatter: formatFn,
-	})
-	m.SetOutput(os.Stdout)
-	m.Write()
-	// Output: test_counter = 1
-}
-```
-
-You also can define your own formatter for the metrics representation.
+You can also define your own formatter for the metrics representation.   
 It's pretty easy (thanks Go for its `interface`). Let's look at some examples.
 
 ```go
