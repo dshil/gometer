@@ -15,5 +15,5 @@
 # vimdiff original files
 *.orig
 
-# idea
-.idea/
+# cov profiles
+*.cov

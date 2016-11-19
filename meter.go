@@ -1,8 +1,6 @@
 package gometer
 
 import (
-	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -13,10 +11,10 @@ import (
 
 // Metrics is a collection of metrics.
 type Metrics struct {
-	mu              sync.Mutex
-	out             io.Writer
-	counters        map[string]*Counter
-	formatterParams FormatterParams
+	mu        sync.Mutex
+	out       io.Writer
+	counters  map[string]*Counter
+	formatter Formatter
 }
 
 var std = New()
@@ -27,11 +25,14 @@ var std = New()
 //
 // formatterParams determines how metric's values
 // will be divided one from another.
+//
+// As a formatter will be used default formatter with
+// '\n' symbol as a metric line separator.
 func New() *Metrics {
 	m := &Metrics{
-		out:             os.Stderr,
-		counters:        make(map[string]*Counter),
-		formatterParams: NewDefaultFormatter(),
+		out:       os.Stderr,
+		counters:  make(map[string]*Counter),
+		formatter: NewFormatter("\n"),
 	}
 	return m
 }
@@ -44,43 +45,33 @@ func (m *Metrics) SetOutput(out io.Writer) {
 	m.out = out
 }
 
-// FormatterParams represents formatting parameters.
-//
-// LineSeparator determines how one metric will be separated from another.
-// LineFormatter determines how one line of metrics will be formatted.
-type FormatterParams struct {
-	LineSeparator string
-	LineFormatter func(args ...interface{}) string
-}
-
 // SetFormatter sets a metrics's formatter.
-func (m *Metrics) SetFormatter(params FormatterParams) {
+func (m *Metrics) SetFormatter(f Formatter) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.formatterParams = params
+	m.formatter = f
 }
 
 // Formatter returns metrics's formatter.
-func (m *Metrics) Formatter() FormatterParams {
+func (m *Metrics) Formatter() Formatter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.formatterParams
+	return m.formatter
 }
 
-// NewDefaultFormatter returns new default formatter.
+// NewFormatter returns new default formatter.
+//
+// lineSeparator determines how one line of metric
+// will be separated from another.
 //
 // As line separator can be used any symbol: e.g. '\n', ':', '.', ','.
-// Default line separator is: "\n".
 //
-// Default format is: "%v = %v".
-func NewDefaultFormatter() FormatterParams {
-	p := FormatterParams{
-		LineSeparator: "\n",
-		LineFormatter: func(args ...interface{}) string {
-			return fmt.Sprintf("%v = %v", args...)
-		},
+// Default format for one line of metrics is: "%v = %v".
+func NewFormatter(lineSeparator string) Formatter {
+	df := &defaultFormatter{
+		lineSeparator: lineSeparator,
 	}
-	return p
+	return df
 }
 
 // Write all existing metrics to output destination.
@@ -185,14 +176,7 @@ func write(m *Metrics) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var buf bytes.Buffer
-	for name, counter := range m.counters {
-		metric := m.formatterParams.LineFormatter(name, counter.Get()) +
-			m.formatterParams.LineSeparator
-		fmt.Fprint(&buf, metric)
-	}
-
-	if _, err := m.out.Write(buf.Bytes()); err != nil {
+	if _, err := m.out.Write(m.formatter.Format(m.counters)); err != nil {
 		return err
 	}
 	return nil
@@ -227,19 +211,12 @@ func SetOutput(out io.Writer) {
 	std.out = out
 }
 
-// SetFormatter sets metrics representation formate.
+// SetFormatter sets formatter for standard metrics.
 // Fore more details see Metrics.SetFormatter().
-func SetFormatter(params FormatterParams) {
+func SetFormatter(f Formatter) {
 	std.mu.Lock()
 	defer std.mu.Unlock()
-	std.formatterParams = params
-}
-
-// Formatter returns formatter for standard metrics.
-func Formatter() FormatterParams {
-	std.mu.Lock()
-	defer std.mu.Unlock()
-	return std.formatterParams
+	std.formatter = f
 }
 
 // Write all existing metrics to output destination.
