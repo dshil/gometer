@@ -21,7 +21,13 @@ func TestMetricsWriteToFile(t *testing.T) {
 	inc := m.NewCounter("add_num")
 	inc.Add(10)
 
-	cancel := m.WriteToFile(fileName, time.Second*10, true)
+	ctx, cancel := context.WithCancel(context.Background())
+	m.WriteToFile(ctx, WriteToFileParams{
+		FilePath:       fileName,
+		UpdateInterval: time.Second * 10,
+		RunImmediately: true,
+	})
+
 	testWriteToFile(t, testWriteToFileParams{
 		fileName:      fileName,
 		lineSeparator: "\n",
@@ -29,11 +35,18 @@ func TestMetricsWriteToFile(t *testing.T) {
 		waitDur:       time.Second * 1,
 		cancel:        cancel,
 	})
+	cancel()
 
 	inc1 := m.NewCounter("inc_num")
 	inc1.Add(4)
 
-	cancel = m.WriteToFile(fileName, time.Second*10, true)
+	ctx, cancel = context.WithCancel(context.Background())
+	m.WriteToFile(ctx, WriteToFileParams{
+		FilePath:       fileName,
+		UpdateInterval: time.Second * 10,
+		RunImmediately: true,
+	})
+
 	testWriteToFile(t, testWriteToFileParams{
 		fileName:      fileName,
 		lineSeparator: "\n",
@@ -41,6 +54,7 @@ func TestMetricsWriteToFile(t *testing.T) {
 		waitDur:       time.Second * 1,
 		cancel:        cancel,
 	})
+	cancel()
 }
 
 type testWriteToFileParams struct {
@@ -55,7 +69,6 @@ type testWriteToFileParams struct {
 
 func testWriteToFile(t *testing.T, p testWriteToFileParams) {
 	time.Sleep(p.waitDur)
-	defer p.cancel()
 
 	data, err := ioutil.ReadFile(p.fileName)
 	require.Nil(t, err)
@@ -124,8 +137,7 @@ func TestMetricsNewCounter(t *testing.T) {
 }
 
 func TestMetricsDefault(t *testing.T) {
-	SetOutput(os.Stderr)
-	assert.Equal(t, os.Stderr, std.out)
+	SetOutput(newTestFile(t, "test_file"))
 
 	SetFormatter(NewFormatter("\n"))
 	assert.NotNil(t, std.formatter)
@@ -135,15 +147,20 @@ func TestMetricsDefault(t *testing.T) {
 	c.Add(10)
 
 	err := Write()
-	assert.Nil(t, err)
+	require.Nil(t, err)
+	err = os.Remove("test_file")
+	require.Nil(t, err)
 
 	SetErrorHandler(new(mockErrorHandler))
 	assert.NotNil(t, std.errHandler)
 
-	fileName := "default_metrics_file"
-	cancel := WriteToFile(fileName, time.Second, true)
-	require.NotNil(t, cancel)
-	defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	WriteToFile(ctx, WriteToFileParams{
+		FilePath:       "test_default_metrics",
+		RunImmediately: true,
+		UpdateInterval: time.Minute,
+	})
+	cancel()
 }
 
 type mockErrorHandler struct{}

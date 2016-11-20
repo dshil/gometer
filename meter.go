@@ -13,7 +13,6 @@ import (
 // Metrics is a collection of metrics.
 type Metrics struct {
 	mu         sync.Mutex
-	ctx        context.Context
 	out        io.Writer
 	counters   map[string]*Counter
 	formatter  Formatter
@@ -79,44 +78,32 @@ func (m *Metrics) Write() error {
 	return write(m)
 }
 
+// WriteToFileParams represents a params for async file writing operation.
+//
+// FilePath represents a file path.
+// UpdateInterval determines how often metrics data will be dumped to file.
+// RunImmediately allows to immediatelly dump all metrics data to file.
+type WriteToFileParams struct {
+	FilePath       string
+	UpdateInterval time.Duration
+	RunImmediately bool
+}
+
 // WriteToFile writes all metrics to clear file.
 //
 // updateInterval determines how often metric will be write to file.
-// returns function that can cancel this operation.
-func (m *Metrics) WriteToFile(path string, updateInterval time.Duration, runImmediately bool) context.CancelFunc {
-	return writeToFile(m, path, updateInterval, runImmediately)
+func (m *Metrics) WriteToFile(ctx context.Context, p WriteToFileParams) {
+	go runFileWriter(ctx, m, p)
 }
 
-func writeToFile(m *Metrics, path string, updateInterval time.Duration, runImmediately bool) context.CancelFunc {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	params := fileWriterParams{
-		ctx:            ctx,
-		path:           path,
-		updateInterval: updateInterval,
-		metrics:        m,
-		runImmediately: runImmediately,
-	}
-	go runFileWriter(params)
-	return cancel
-}
-
-type fileWriterParams struct {
-	ctx            context.Context
-	path           string
-	updateInterval time.Duration
-	metrics        *Metrics
-	runImmediately bool
-}
-
-func runFileWriter(p fileWriterParams) {
-	ticker := time.NewTicker(p.updateInterval)
+func runFileWriter(ctx context.Context, m *Metrics, p WriteToFileParams) {
+	ticker := time.NewTicker(p.UpdateInterval)
 	defer ticker.Stop()
 
-	if p.runImmediately {
-		if err := createAndWriteFile(p.metrics, p.path); err != nil {
-			if p.metrics.errHandler != nil {
-				p.metrics.errHandler.Handle(err)
+	if p.RunImmediately {
+		if err := createAndWriteFile(m, p.FilePath); err != nil {
+			if m.errHandler != nil {
+				m.errHandler.Handle(err)
 				return
 			}
 			panic(err)
@@ -126,14 +113,14 @@ func runFileWriter(p fileWriterParams) {
 	for {
 		select {
 		case <-ticker.C:
-			if err := createAndWriteFile(p.metrics, p.path); err != nil {
-				if p.metrics.errHandler != nil {
-					p.metrics.errHandler.Handle(err)
+			if err := createAndWriteFile(m, p.FilePath); err != nil {
+				if m.errHandler != nil {
+					m.errHandler.Handle(err)
 					return
 				}
 				panic(err)
 			}
-		case <-p.ctx.Done():
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -224,8 +211,8 @@ func Write() error {
 
 // WriteToFile writes all metrics to clear file.
 // For more details see Metrics.WriteToFile() .
-func WriteToFile(path string, updateInterval time.Duration, runImmediately bool) context.CancelFunc {
-	return writeToFile(std, path, updateInterval, runImmediately)
+func WriteToFile(ctx context.Context, p WriteToFileParams) {
+	go runFileWriter(ctx, std, p)
 }
 
 // NewCounter returns new counter for standard metrics.
