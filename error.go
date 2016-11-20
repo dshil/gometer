@@ -1,6 +1,6 @@
 package gometer
 
-// ErrorHandler is used to handle errors happend
+// ErrorHandler is used to handle errors that can happen
 // during async rewriting metrics file.
 //
 // Default error handler has the nil value.
