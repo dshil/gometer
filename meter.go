@@ -93,6 +93,9 @@ type WriteToFileParams struct {
 //
 // updateInterval determines how often metric will be write to file.
 func (m *Metrics) WriteToFile(ctx context.Context, p WriteToFileParams) {
+	if ctx == nil {
+		panic("nil Context")
+	}
 	go runFileWriter(ctx, m, p)
 }
 
@@ -212,6 +215,9 @@ func Write() error {
 // WriteToFile writes all metrics to clear file.
 // For more details see Metrics.WriteToFile() .
 func WriteToFile(ctx context.Context, p WriteToFileParams) {
+	if ctx == nil {
+		panic("nil Context")
+	}
 	go runFileWriter(ctx, std, p)
 }
 
