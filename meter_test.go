@@ -1,6 +1,7 @@
 package gometer
 
 import (
+	"context"
 	"io/ioutil"
 	"log"
 	"os"
@@ -20,25 +21,25 @@ func TestMetricsWriteToFile(t *testing.T) {
 	inc := m.NewCounter("add_num")
 	inc.Add(10)
 
-	stopper := m.WriteToFile(fileName, time.Second*10, true)
+	cancel := m.WriteToFile(fileName, time.Second*10, true)
 	testWriteToFile(t, testWriteToFileParams{
 		fileName:      fileName,
 		lineSeparator: "\n",
 		expMetricCnt:  1,
 		waitDur:       time.Second * 1,
-		stopper:       stopper,
+		cancel:        cancel,
 	})
 
 	inc1 := m.NewCounter("inc_num")
 	inc1.Add(4)
 
-	stopper = m.WriteToFile(fileName, time.Second*10, true)
+	cancel = m.WriteToFile(fileName, time.Second*10, true)
 	testWriteToFile(t, testWriteToFileParams{
 		fileName:      fileName,
 		lineSeparator: "\n",
 		expMetricCnt:  2,
 		waitDur:       time.Second * 1,
-		stopper:       stopper,
+		cancel:        cancel,
 	})
 }
 
@@ -49,12 +50,12 @@ type testWriteToFileParams struct {
 	expMetricCnt int
 
 	waitDur time.Duration
-	stopper *Stopper
+	cancel  context.CancelFunc
 }
 
 func testWriteToFile(t *testing.T, p testWriteToFileParams) {
 	time.Sleep(p.waitDur)
-	defer p.stopper.Stop()
+	defer p.cancel()
 
 	data, err := ioutil.ReadFile(p.fileName)
 	require.Nil(t, err)
@@ -140,9 +141,9 @@ func TestMetricsDefault(t *testing.T) {
 	assert.NotNil(t, std.errHandler)
 
 	fileName := "default_metrics_file"
-	stopper := WriteToFile(fileName, time.Second, true)
-	require.NotNil(t, stopper)
-	defer stopper.Stop()
+	cancel := WriteToFile(fileName, time.Second, true)
+	require.NotNil(t, cancel)
+	defer cancel()
 }
 
 type mockErrorHandler struct{}
