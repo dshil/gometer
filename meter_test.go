@@ -2,6 +2,7 @@ package gometer
 
 import (
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 	"testing"
@@ -92,6 +93,12 @@ func TestMetricsSetFormatter(t *testing.T) {
 	assert.Equal(t, "10", metricLine[1])
 }
 
+func TestMetricsFormatter(t *testing.T) {
+	metrics := New()
+	metrics.SetFormatter(NewFormatter("\n"))
+	assert.NotNil(t, metrics.Formatter())
+}
+
 func newTestFile(t *testing.T, fileName string) *os.File {
 	file, err := os.Create(fileName)
 	require.Nil(t, err)
@@ -103,4 +110,49 @@ func closeAndRemoveTestFile(t *testing.T, f *os.File) {
 	require.Nil(t, err)
 	err = os.Remove(f.Name())
 	require.Nil(t, err)
+}
+
+func TestMetricsNewCounter(t *testing.T) {
+	metrics := New()
+	c1 := metrics.NewCounter("test_counter")
+
+	// NewCounter will not recreate a counter (because of the same names),
+	// just returns existing counter.
+	c2 := metrics.NewCounter("test_counter")
+	assert.Equal(t, c1, c2)
+}
+
+func TestMetricsDefault(t *testing.T) {
+	SetOutput(os.Stderr)
+	assert.Equal(t, os.Stderr, std.out)
+
+	SetFormatter(NewFormatter("\n"))
+	assert.NotNil(t, std.formatter)
+
+	c := NewCounter("default_metrics_counter")
+	require.NotNil(t, c)
+	c.Add(10)
+
+	err := Write()
+	assert.Nil(t, err)
+
+	SetErrorHandler(new(mockErrorHandler))
+	assert.NotNil(t, std.errHandler)
+
+	fileName := "default_metrics_file"
+	stopper := WriteToFile(fileName, time.Second, true)
+	require.NotNil(t, stopper)
+	defer stopper.Stop()
+}
+
+type mockErrorHandler struct{}
+
+func (e *mockErrorHandler) Handle(err error) {
+	log.Printf("failed to write metrics file, %v\n", err)
+}
+
+func TestMetricsSetErrorHandler(t *testing.T) {
+	metrics := New()
+	metrics.SetErrorHandler(new(mockErrorHandler))
+	assert.NotNil(t, metrics.errHandler)
 }

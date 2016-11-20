@@ -11,10 +11,11 @@ import (
 
 // Metrics is a collection of metrics.
 type Metrics struct {
-	mu        sync.Mutex
-	out       io.Writer
-	counters  map[string]*Counter
-	formatter Formatter
+	mu         sync.Mutex
+	out        io.Writer
+	counters   map[string]*Counter
+	formatter  Formatter
+	errHandler ErrorHandler
 }
 
 var std = New()
@@ -59,19 +60,12 @@ func (m *Metrics) Formatter() Formatter {
 	return m.formatter
 }
 
-// NewFormatter returns new default formatter.
-//
-// lineSeparator determines how one line of metric
-// will be separated from another.
-//
-// As line separator can be used any symbol: e.g. '\n', ':', '.', ','.
-//
-// Default format for one line of metrics is: "%v = %v".
-func NewFormatter(lineSeparator string) Formatter {
-	df := &defaultFormatter{
-		lineSeparator: lineSeparator,
-	}
-	return df
+// SetErrorHandler sets error handler for errors that
+// can happen during async rewriting metrics file.
+func (m *Metrics) SetErrorHandler(e ErrorHandler) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.errHandler = e
 }
 
 // Write all existing metrics to output destination.
@@ -112,7 +106,7 @@ func writeToFile(m *Metrics, path string, updateInterval time.Duration, runImmed
 		stopCh:         stopCh,
 		path:           path,
 		updateInterval: updateInterval,
-		metric:         m,
+		metrics:        m,
 		runImmediately: runImmediately,
 	}
 	go runFileWriter(params)
@@ -123,7 +117,7 @@ type fileWriterParams struct {
 	stopCh         chan bool
 	path           string
 	updateInterval time.Duration
-	metric         *Metrics
+	metrics        *Metrics
 	runImmediately bool
 }
 
@@ -133,7 +127,11 @@ func runFileWriter(p fileWriterParams) {
 	defer close(p.stopCh)
 
 	if p.runImmediately {
-		if err := createAndWriteFile(p.metric, p.path); err != nil {
+		if err := createAndWriteFile(p.metrics, p.path); err != nil {
+			if p.metrics.errHandler != nil {
+				p.metrics.errHandler.Handle(err)
+				return
+			}
 			panic(err)
 		}
 	}
@@ -141,7 +139,11 @@ func runFileWriter(p fileWriterParams) {
 	for {
 		select {
 		case <-ticker.C:
-			if err := createAndWriteFile(p.metric, p.path); err != nil {
+			if err := createAndWriteFile(p.metrics, p.path); err != nil {
+				if p.metrics.errHandler != nil {
+					p.metrics.errHandler.Handle(err)
+					return
+				}
 				panic(err)
 			}
 		case <-p.stopCh:
@@ -217,6 +219,14 @@ func SetFormatter(f Formatter) {
 	std.mu.Lock()
 	defer std.mu.Unlock()
 	std.formatter = f
+}
+
+// SetErrorHandler sets error handler for errors that
+// can happen during async rewriting metrics file.
+func SetErrorHandler(e ErrorHandler) {
+	std.mu.Lock()
+	defer std.mu.Unlock()
+	std.errHandler = e
 }
 
 // Write all existing metrics to output destination.
