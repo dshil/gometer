@@ -42,7 +42,6 @@ func ExampleWriteToStdout() {
 ```
 
 You can also define your own formatter for the metrics representation.   
-It's pretty easy (thanks Go for its `interface`). Let's look at some examples.
 
 ```go
 package example
