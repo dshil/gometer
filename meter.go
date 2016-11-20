@@ -1,6 +1,7 @@
 package gometer
 
 import (
+	"context"
 	"io"
 	"os"
 	"sync"
@@ -12,6 +13,7 @@ import (
 // Metrics is a collection of metrics.
 type Metrics struct {
 	mu         sync.Mutex
+	ctx        context.Context
 	out        io.Writer
 	counters   map[string]*Counter
 	formatter  Formatter
@@ -77,44 +79,30 @@ func (m *Metrics) Write() error {
 	return write(m)
 }
 
-// Stopper allows to stop writing metrics to file.
-type Stopper struct {
-	Stop func()
-}
-
 // WriteToFile writes all metrics to clear file.
 //
 // updateInterval determines how often metric will be write to file.
-// use stopper to stop writing metrics periodically to file.
-func (m *Metrics) WriteToFile(path string, updateInterval time.Duration, runImmediately bool) *Stopper {
+// returns function that can cancel this operation.
+func (m *Metrics) WriteToFile(path string, updateInterval time.Duration, runImmediately bool) context.CancelFunc {
 	return writeToFile(m, path, updateInterval, runImmediately)
 }
 
-func writeToFile(m *Metrics, path string, updateInterval time.Duration, runImmediately bool) *Stopper {
-	stopCh := make(chan bool, 1)
-
-	once := sync.Once{}
-	s := &Stopper{
-		Stop: func() {
-			once.Do(func() {
-				stopCh <- true
-			})
-		},
-	}
+func writeToFile(m *Metrics, path string, updateInterval time.Duration, runImmediately bool) context.CancelFunc {
+	ctx, cancel := context.WithCancel(context.Background())
 
 	params := fileWriterParams{
-		stopCh:         stopCh,
+		ctx:            ctx,
 		path:           path,
 		updateInterval: updateInterval,
 		metrics:        m,
 		runImmediately: runImmediately,
 	}
 	go runFileWriter(params)
-	return s
+	return cancel
 }
 
 type fileWriterParams struct {
-	stopCh         chan bool
+	ctx            context.Context
 	path           string
 	updateInterval time.Duration
 	metrics        *Metrics
@@ -124,7 +112,6 @@ type fileWriterParams struct {
 func runFileWriter(p fileWriterParams) {
 	ticker := time.NewTicker(p.updateInterval)
 	defer ticker.Stop()
-	defer close(p.stopCh)
 
 	if p.runImmediately {
 		if err := createAndWriteFile(p.metrics, p.path); err != nil {
@@ -146,7 +133,7 @@ func runFileWriter(p fileWriterParams) {
 				}
 				panic(err)
 			}
-		case <-p.stopCh:
+		case <-p.ctx.Done():
 			return
 		}
 	}
@@ -237,7 +224,7 @@ func Write() error {
 
 // WriteToFile writes all metrics to clear file.
 // For more details see Metrics.WriteToFile() .
-func WriteToFile(path string, updateInterval time.Duration, runImmediately bool) *Stopper {
+func WriteToFile(path string, updateInterval time.Duration, runImmediately bool) context.CancelFunc {
 	return writeToFile(std, path, updateInterval, runImmediately)
 }
 
