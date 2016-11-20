@@ -12,6 +12,21 @@ type Formatter interface {
 	Format(counters map[string]*Counter) []byte
 }
 
+// NewFormatter returns new default formatter.
+//
+// lineSeparator determines how one line of metric
+// will be separated from another.
+//
+// As line separator can be used any symbol: e.g. '\n', ':', '.', ','.
+//
+// Default format for one line of metrics is: "%v = %v".
+func NewFormatter(lineSeparator string) Formatter {
+	df := &defaultFormatter{
+		lineSeparator: lineSeparator,
+	}
+	return df
+}
+
 type defaultFormatter struct {
 	lineSeparator string
 }

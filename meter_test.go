@@ -2,6 +2,7 @@ package gometer
 
 import (
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 	"testing"
@@ -103,4 +104,16 @@ func closeAndRemoveTestFile(t *testing.T, f *os.File) {
 	require.Nil(t, err)
 	err = os.Remove(f.Name())
 	require.Nil(t, err)
+}
+
+type mockErrorHandler struct{}
+
+func (e *mockErrorHandler) Handle(err error) {
+	log.Printf("failed to write metrics file, %v\n", err)
+}
+
+func TestMetricsSetErrorHandler(t *testing.T) {
+	metrics := New()
+	metrics.SetErrorHandler(new(mockErrorHandler))
+	assert.NotNil(t, metrics.errHandler)
 }
