@@ -12,7 +12,8 @@ Install [Go](https://golang.org/) and run:
 
 ## Quick start
 
-Let's print our metrics to Stdout.
+##### Write metrics to stdout.
+
 ```go
 package example
 
@@ -41,7 +42,7 @@ func ExampleWriteToStdout() {
 }
 ```
 
-You can also define your own formatter for the metrics representation.   
+##### Own formatter for metrics representation.
 
 ```go
 package example
@@ -123,5 +124,35 @@ func ExampleSortByNameFormatter() {
 	// adder: 10
 	// inc: 1
 	// setter: -1
+}
+```
+
+##### Write metrics to file periodically with cancelation.
+
+```go
+package example
+
+import (
+	"context"
+	"time"
+
+	"github.com/dshil/gometer"
+)
+
+func ExampleWriteToFile() {
+	metrics := gometer.New()
+	metrics.SetFormatter(gometer.NewFormatter("\n"))
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// write metrics to file periodically.
+	gometer.WriteToFile(ctx, gometer.WriteToFileParams{
+		FilePath:       "test_file",
+		UpdateInterval: time.Second,
+		RunImmediately: true,
+	})
+
+	// call will stop writing to file operation.
+	defer cancel()
 }
 ```
