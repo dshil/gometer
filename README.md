@@ -144,6 +144,8 @@ func ExampleWriteToFile() {
 	metrics.SetFormatter(gometer.NewFormatter("\n"))
 
 	ctx, cancel := context.WithCancel(context.Background())
+	// call will stop writing to file operation.
+	defer cancel()
 
 	// write metrics to file periodically.
 	gometer.WriteToFile(ctx, gometer.WriteToFileParams{
@@ -151,8 +153,5 @@ func ExampleWriteToFile() {
 		UpdateInterval: time.Second,
 		RunImmediately: true,
 	})
-
-	// call will stop writing to file operation.
-	defer cancel()
 }
 ```
