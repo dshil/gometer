@@ -3,12 +3,19 @@
 
 `gometer` is a small library for your application's metrics.
 
+Firstly, the main goal of `gometer` is to represent key-value metrics in some format.   
+Later these formatted metrics can be used by other services (e.g. Zabbix).
+
 ## Installation
 
 Install [Go](https://golang.org/) and run:
 
     go get -v github.com/dshil/gometer
 
+
+## Documentation
+
+Documentation is available on [GoDoc](https://godoc.org/github.com/dshil/gometer).
 
 ## Quick start
 
