@@ -3,7 +3,7 @@
 
 `gometer` is a small library for your application's metrics.
 
-Firstly, the main goal of `gometer` is to represent key-value metrics in some format.   
+Basically, the main goal of `gometer` is to represent key-value metrics in some format.   
 Later these formatted metrics can be used by other services (e.g. Zabbix).
 
 ## Installation
