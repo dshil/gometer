@@ -73,3 +73,5 @@ func (f *defaultFormatter) Format(counters map[string]*Counter) []byte {
 
 	return buf.Bytes()
 }
+
+var _ Formatter = (*defaultFormatter)(nil)
