@@ -17,3 +17,6 @@
 
 # cov profiles
 *.cov
+
+# temp files
+*.tmp
