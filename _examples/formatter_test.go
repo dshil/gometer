@@ -20,6 +20,8 @@ func (f *simpleFormatter) Format(counters map[string]*gometer.Counter) []byte {
 	return buf.Bytes()
 }
 
+var _ gometer.Formatter = (*simpleFormatter)(nil)
+
 func ExampleSimpleFormatter() {
 	metrics := gometer.New()
 	metrics.SetOutput(os.Stdout)
@@ -54,6 +56,8 @@ func (f *sortByNameFormatter) Format(counters map[string]*gometer.Counter) []byt
 
 	return buf.Bytes()
 }
+
+var _ gometer.Formatter = (*sortByNameFormatter)(nil)
 
 func ExampleSortByNameFormatter() {
 	metrics := gometer.New()
