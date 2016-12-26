@@ -78,40 +78,28 @@ func (m *Metrics) Write() error {
 	return write(m)
 }
 
-// WriteToFileParams represents a params for async file writing operation.
+// FileWriterParams represents a params for async file writing operation.
 //
 // FilePath represents a file path.
 // UpdateInterval determines how often metrics data will be dumped to file.
-// RunImmediately allows to immediatelly dump all metrics data to file.
-type WriteToFileParams struct {
+type FileWriterParams struct {
 	FilePath       string
 	UpdateInterval time.Duration
-	RunImmediately bool
 }
 
-// WriteToFile writes all metrics to clear file.
+// StartFileWriter writes all metrics to clear file.
 //
 // updateInterval determines how often metric will be write to file.
-func (m *Metrics) WriteToFile(ctx context.Context, p WriteToFileParams) {
+func (m *Metrics) StartFileWriter(ctx context.Context, p FileWriterParams) {
 	if ctx == nil {
 		panic("nil Context")
 	}
-	go runFileWriter(ctx, m, p)
+	go startFileWriter(ctx, m, p)
 }
 
-func runFileWriter(ctx context.Context, m *Metrics, p WriteToFileParams) {
+func startFileWriter(ctx context.Context, m *Metrics, p FileWriterParams) {
 	ticker := time.NewTicker(p.UpdateInterval)
 	defer ticker.Stop()
-
-	if p.RunImmediately {
-		if err := createAndWriteFile(m, p.FilePath); err != nil {
-			if m.errHandler != nil {
-				m.errHandler.Handle(err)
-				return
-			}
-			panic(err)
-		}
-	}
 
 	for {
 		select {
@@ -212,13 +200,13 @@ func Write() error {
 	return write(std)
 }
 
-// WriteToFile writes all metrics to clear file.
-// For more details see Metrics.WriteToFile() .
-func WriteToFile(ctx context.Context, p WriteToFileParams) {
+// StartFileWriter writes all metrics to clear file.
+// For more details see Metrics.WriteToFile().
+func StartFileWriter(ctx context.Context, p FileWriterParams) {
 	if ctx == nil {
 		panic("nil Context")
 	}
-	go runFileWriter(ctx, std, p)
+	go startFileWriter(ctx, std, p)
 }
 
 // NewCounter returns new counter for standard metrics.
