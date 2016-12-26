@@ -2,8 +2,8 @@ package gometer
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 	"testing"
@@ -22,17 +22,16 @@ func TestMetricsWriteToFile(t *testing.T) {
 	inc.Add(10)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	m.WriteToFile(ctx, WriteToFileParams{
+	m.StartFileWriter(ctx, FileWriterParams{
 		FilePath:       fileName,
-		UpdateInterval: time.Second * 10,
-		RunImmediately: true,
+		UpdateInterval: time.Second * 1,
 	})
 
 	testWriteToFile(t, testWriteToFileParams{
 		fileName:      fileName,
 		lineSeparator: "\n",
 		expMetricCnt:  1,
-		waitDur:       time.Second * 1,
+		waitDur:       time.Second * 2,
 		cancel:        cancel,
 	})
 	cancel()
@@ -41,17 +40,16 @@ func TestMetricsWriteToFile(t *testing.T) {
 	inc1.Add(4)
 
 	ctx, cancel = context.WithCancel(context.Background())
-	m.WriteToFile(ctx, WriteToFileParams{
+	m.StartFileWriter(ctx, FileWriterParams{
 		FilePath:       fileName,
-		UpdateInterval: time.Second * 10,
-		RunImmediately: true,
+		UpdateInterval: time.Second * 2,
 	})
 
 	testWriteToFile(t, testWriteToFileParams{
 		fileName:      fileName,
 		lineSeparator: "\n",
 		expMetricCnt:  2,
-		waitDur:       time.Second * 1,
+		waitDur:       time.Second * 3,
 		cancel:        cancel,
 	})
 	cancel()
@@ -155,9 +153,8 @@ func TestMetricsDefault(t *testing.T) {
 	assert.NotNil(t, std.errHandler)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	WriteToFile(ctx, WriteToFileParams{
+	StartFileWriter(ctx, FileWriterParams{
 		FilePath:       "test_default_metrics",
-		RunImmediately: true,
 		UpdateInterval: time.Minute,
 	})
 	cancel()
@@ -166,7 +163,7 @@ func TestMetricsDefault(t *testing.T) {
 type mockErrorHandler struct{}
 
 func (e *mockErrorHandler) Handle(err error) {
-	log.Printf("failed to write metrics file, %v\n", err)
+	fmt.Fprintf(os.Stderr, "failed to write metrics file, %v\n", err)
 }
 
 func TestMetricsSetErrorHandler(t *testing.T) {
