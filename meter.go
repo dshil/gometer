@@ -2,6 +2,7 @@ package gometer
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -59,6 +60,36 @@ func (m *Metrics) Formatter() Formatter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.formatter
+}
+
+// Register registers new counter in metric collection, returns error if
+// counter with such name exists.
+func (m *Metrics) Register(counterName string, c *Counter) error {
+	return registerCounter(m, counterName, c)
+}
+
+func registerCounter(metrics *Metrics, counterName string, counter *Counter) error {
+	metrics.mu.Lock()
+	defer metrics.mu.Unlock()
+
+	if _, ok := metrics.counters[counterName]; ok {
+		return fmt.Errorf("counter with name `%v` exists")
+	}
+
+	metrics.counters[counterName] = counter
+	return nil
+}
+
+// GetCounter returns counter by name or nil if counter doesn't exist.
+func (m *Metrics) GetCounter(counterName string) (*Counter, bool) {
+	return getCounter(m, counterName)
+}
+
+func getCounter(m *Metrics, counterName string) (*Counter, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	counter, ok := m.counters[counterName]
+	return counter, ok
 }
 
 // SetErrorHandler sets error handler for errors that
@@ -149,25 +180,6 @@ func write(m *Metrics) error {
 	return nil
 }
 
-// NewCounter creates new counter in metrics collection and returns it.
-func (m *Metrics) NewCounter(name string) *Counter {
-	return newCounter(m, name)
-}
-
-func newCounter(m *Metrics, counterName string) *Counter {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if c, ok := m.counters[counterName]; ok {
-		return c
-	}
-
-	c := &Counter{}
-	m.counters[counterName] = c
-
-	return c
-}
-
 // These functions are used for standard metrics.
 
 // SetOutput sets output destination for standard metrics.
@@ -184,6 +196,17 @@ func SetFormatter(f Formatter) {
 	std.mu.Lock()
 	defer std.mu.Unlock()
 	std.formatter = f
+}
+
+// Register registers new counter in metric collection, returns error if
+// counter with such name exists.
+func Register(counterName string, c *Counter) error {
+	return registerCounter(std, counterName, c)
+}
+
+// GetCounter returns counter by name or nil if counter doesn't exist.
+func GetCounter(counterName string) (*Counter, bool) {
+	return getCounter(std, counterName)
 }
 
 // SetErrorHandler sets error handler for errors that
@@ -207,9 +230,4 @@ func StartFileWriter(ctx context.Context, p FileWriterParams) {
 		panic("nil Context")
 	}
 	go startFileWriter(ctx, std, p)
-}
-
-// NewCounter returns new counter for standard metrics.
-func NewCounter(name string) *Counter {
-	return newCounter(std, name)
 }
