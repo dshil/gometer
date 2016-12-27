@@ -73,7 +73,7 @@ func registerCounter(metrics *Metrics, counterName string, counter *Counter) err
 	defer metrics.mu.Unlock()
 
 	if _, ok := metrics.counters[counterName]; ok {
-		return fmt.Errorf("counter with name `%v` exists")
+		return fmt.Errorf("counter with name `%v` exists", counterName)
 	}
 
 	metrics.counters[counterName] = counter
