@@ -27,8 +27,12 @@ func ExampleSimpleFormatter() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(new(simpleFormatter))
 
-	c := metrics.NewCounter("http_requests_total")
+	c := gometer.Counter{}
 	c.Add(100)
+	if err := metrics.Register("http_requests_total", &c); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 
 	if err := metrics.Write(); err != nil {
 		fmt.Println(err.Error())
@@ -64,14 +68,26 @@ func ExampleSortByNameFormatter() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(new(sortByNameFormatter))
 
-	adder := metrics.NewCounter("adder")
+	adder := gometer.Counter{}
 	adder.Add(10)
+	if err := metrics.Register("adder", &adder); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 
-	setter := metrics.NewCounter("setter")
+	setter := gometer.Counter{}
 	setter.Set(-1)
+	if err := metrics.Register("setter", &setter); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 
-	inc := metrics.NewCounter("inc")
+	inc := gometer.Counter{}
 	inc.Add(1)
+	if err := metrics.Register("inc", &inc); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 
 	if err := metrics.Write(); err != nil {
 		fmt.Println(err.Error())

@@ -13,16 +13,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMetricsWriteToFile(t *testing.T) {
+func TestMetricsStartFileWriter(t *testing.T) {
 	fileName := "test_write_to_file"
-	m := New()
-	m.SetFormatter(NewFormatter("\n"))
+	metrics := New()
+	metrics.SetFormatter(NewFormatter("\n"))
 
-	inc := m.NewCounter("add_num")
+	require.Panics(t, func() {
+		metrics.StartFileWriter(nil, FileWriterParams{})
+	})
+
+	inc := Counter{}
 	inc.Add(10)
+	err := metrics.Register("add_num", &inc)
+	require.Nil(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	m.StartFileWriter(ctx, FileWriterParams{
+	metrics.StartFileWriter(ctx, FileWriterParams{
 		FilePath:       fileName,
 		UpdateInterval: time.Second * 1,
 	})
@@ -36,11 +42,13 @@ func TestMetricsWriteToFile(t *testing.T) {
 	})
 	cancel()
 
-	inc1 := m.NewCounter("inc_num")
+	inc1 := Counter{}
 	inc1.Add(4)
+	err = metrics.Register("inc_num", &inc1)
+	require.Nil(t, err)
 
 	ctx, cancel = context.WithCancel(context.Background())
-	m.StartFileWriter(ctx, FileWriterParams{
+	metrics.StartFileWriter(ctx, FileWriterParams{
 		FilePath:       fileName,
 		UpdateInterval: time.Second * 2,
 	})
@@ -88,10 +96,12 @@ func TestMetricsSetFormatter(t *testing.T) {
 	metrics.SetOutput(file)
 	metrics.SetFormatter(NewFormatter("\n"))
 
-	c := metrics.NewCounter("test_counter")
+	c := Counter{}
 	c.Add(10)
+	err := metrics.Register("test_counter", &c)
+	require.Nil(t, err)
 
-	err := metrics.Write()
+	err = metrics.Write()
 	require.Nil(t, err)
 
 	data, err := ioutil.ReadFile(fileName)
@@ -124,27 +134,18 @@ func closeAndRemoveTestFile(t *testing.T, f *os.File) {
 	require.Nil(t, err)
 }
 
-func TestMetricsNewCounter(t *testing.T) {
-	metrics := New()
-	c1 := metrics.NewCounter("test_counter")
-
-	// NewCounter will not recreate a counter (because of the same names),
-	// just returns existing counter.
-	c2 := metrics.NewCounter("test_counter")
-	assert.Equal(t, c1, c2)
-}
-
 func TestMetricsDefault(t *testing.T) {
 	SetOutput(newTestFile(t, "test_file"))
 
 	SetFormatter(NewFormatter("\n"))
 	assert.NotNil(t, std.formatter)
 
-	c := NewCounter("default_metrics_counter")
-	require.NotNil(t, c)
+	c := Counter{}
 	c.Add(10)
+	err := Register("default_metrics_counter", &c)
+	require.Nil(t, err)
 
-	err := Write()
+	err = Write()
 	require.Nil(t, err)
 	err = os.Remove("test_file")
 	require.Nil(t, err)
@@ -152,12 +153,21 @@ func TestMetricsDefault(t *testing.T) {
 	SetErrorHandler(new(mockErrorHandler))
 	assert.NotNil(t, std.errHandler)
 
+	require.Panics(t, func() {
+		StartFileWriter(nil, FileWriterParams{})
+	})
+
 	ctx, cancel := context.WithCancel(context.Background())
 	StartFileWriter(ctx, FileWriterParams{
 		FilePath:       "test_default_metrics",
 		UpdateInterval: time.Minute,
 	})
 	cancel()
+
+	counter, ok := GetCounter("default_metrics_counter")
+	require.True(t, ok)
+	require.NotNil(t, counter)
+	assert.Equal(t, int64(10), counter.Get())
 }
 
 type mockErrorHandler struct{}
@@ -170,4 +180,31 @@ func TestMetricsSetErrorHandler(t *testing.T) {
 	metrics := New()
 	metrics.SetErrorHandler(new(mockErrorHandler))
 	assert.NotNil(t, metrics.errHandler)
+}
+
+func TestMetricsExistingCounter(t *testing.T) {
+	metrics := New()
+	counter := Counter{}
+	err := metrics.Register("existing_metrics", &counter)
+	require.Nil(t, err)
+
+	err = metrics.Register("existing_metrics", &counter)
+	require.NotNil(t, err)
+}
+
+func TestMetricsGetCounter(t *testing.T) {
+	metrics := New()
+	c, ok := metrics.GetCounter("not_existing_counter")
+	require.False(t, ok)
+	require.Nil(t, c)
+
+	counter := Counter{}
+	counter.Set(10)
+	err := metrics.Register("get_counter", &counter)
+	require.Nil(t, err)
+
+	c, ok = metrics.GetCounter("get_counter")
+	require.True(t, ok)
+	require.NotNil(t, c)
+	assert.Equal(t, int64(10), c.Get())
 }
