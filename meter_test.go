@@ -164,8 +164,7 @@ func TestMetricsDefault(t *testing.T) {
 	})
 	cancel()
 
-	counter, ok := GetCounter("default_metrics_counter")
-	require.True(t, ok)
+	counter := Get("default_metrics_counter")
 	require.NotNil(t, counter)
 	assert.Equal(t, int64(10), counter.Get())
 }
@@ -194,8 +193,7 @@ func TestMetricsExistingCounter(t *testing.T) {
 
 func TestMetricsGetCounter(t *testing.T) {
 	metrics := New()
-	c, ok := metrics.GetCounter("not_existing_counter")
-	require.False(t, ok)
+	c := metrics.Get("not_existing_counter")
 	require.Nil(t, c)
 
 	counter := Counter{}
@@ -203,8 +201,7 @@ func TestMetricsGetCounter(t *testing.T) {
 	err := metrics.Register("get_counter", &counter)
 	require.Nil(t, err)
 
-	c, ok = metrics.GetCounter("get_counter")
-	require.True(t, ok)
+	c = metrics.Get("get_counter")
 	require.NotNil(t, c)
 	assert.Equal(t, int64(10), c.Get())
 }

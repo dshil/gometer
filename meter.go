@@ -80,16 +80,16 @@ func registerCounter(metrics *Metrics, counterName string, counter *Counter) err
 	return nil
 }
 
-// GetCounter returns counter by name or nil if counter doesn't exist.
-func (m *Metrics) GetCounter(counterName string) (*Counter, bool) {
+// Get returns counter by name or nil if counter doesn't exist.
+func (m *Metrics) Get(counterName string) *Counter {
 	return getCounter(m, counterName)
 }
 
-func getCounter(m *Metrics, counterName string) (*Counter, bool) {
+func getCounter(m *Metrics, counterName string) *Counter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	counter, ok := m.counters[counterName]
-	return counter, ok
+	c := m.counters[counterName]
+	return c
 }
 
 // SetErrorHandler sets error handler for errors that
@@ -204,8 +204,8 @@ func Register(counterName string, c *Counter) error {
 	return registerCounter(std, counterName, c)
 }
 
-// GetCounter returns counter by name or nil if counter doesn't exist.
-func GetCounter(counterName string) (*Counter, bool) {
+// Get returns counter by name or nil if counter doesn't exist.
+func Get(counterName string) *Counter {
 	return getCounter(std, counterName)
 }
 
