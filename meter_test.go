@@ -167,6 +167,12 @@ func TestMetricsDefault(t *testing.T) {
 	counter := Get("default_metrics_counter")
 	require.NotNil(t, counter)
 	assert.Equal(t, int64(10), counter.Get())
+
+	group := Group()
+	assert.NotNil(t, group)
+
+	err = RegisterGroup(group)
+	assert.Nil(t, err)
 }
 
 type mockErrorHandler struct{}
@@ -204,4 +210,33 @@ func TestMetricsGetCounter(t *testing.T) {
 	c = metrics.Get("get_counter")
 	require.NotNil(t, c)
 	assert.Equal(t, int64(10), c.Get())
+}
+
+func TestMetricsGroup(t *testing.T) {
+	metrics := New()
+
+	group := metrics.Group()
+	assert.NotNil(t, group)
+}
+
+func TestMetricsRegisterGroup(t *testing.T) {
+	metrics := New()
+
+	group := metrics.Group().WithPrefix("foo").WithSeparator(".")
+
+	barCounter := Counter{}
+	barCounter.Add(100)
+
+	bazCounter := Counter{}
+	bazCounter.Add(140)
+
+	group.Add("bar", &barCounter)
+	group.Add("baz", &bazCounter)
+
+	err := metrics.RegisterGroup(group)
+	require.Nil(t, err)
+
+	gotBar := metrics.Get("foo.bar")
+	require.NotNil(t, gotBar)
+	assert.Equal(t, int64(100), gotBar.Get())
 }
