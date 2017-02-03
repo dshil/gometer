@@ -80,6 +80,23 @@ func registerCounter(metrics *Metrics, counterName string, counter *Counter) err
 	return nil
 }
 
+// RegisterGroup registers a collection of counters in the metric collection, returns
+// an error if a counter with such name exists.
+func (m *Metrics) RegisterGroup(group *GroupCounter) error {
+	return registerGroup(m, group)
+}
+
+func registerGroup(metrics *Metrics, group *GroupCounter) error {
+	counters := group.Counters()
+
+	for name, counter := range counters {
+		if err := registerCounter(metrics, name, counter); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Get returns counter by name or nil if counter doesn't exist.
 func (m *Metrics) Get(counterName string) *Counter {
 	return getCounter(m, counterName)
@@ -98,6 +115,13 @@ func (m *Metrics) SetErrorHandler(e ErrorHandler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.errHandler = e
+}
+
+// Group returns new group counter.
+func (m *Metrics) Group() *GroupCounter {
+	return &GroupCounter{
+		counters: make(map[string]*Counter),
+	}
 }
 
 // Write all existing metrics to output destination.
@@ -230,4 +254,17 @@ func StartFileWriter(ctx context.Context, p FileWriterParams) {
 		panic("nil Context")
 	}
 	go startFileWriter(ctx, std, p)
+}
+
+// Group returns new group counter.
+func Group() *GroupCounter {
+	return &GroupCounter{
+		counters: make(map[string]*Counter),
+	}
+}
+
+// RegisterGroup registers a collection of counters in the default metric collection,
+// returns an error if a counter with such name exists.
+func RegisterGroup(group *GroupCounter) error {
+	return registerGroup(std, group)
 }
