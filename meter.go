@@ -266,7 +266,7 @@ func StartFileWriter(ctx context.Context, p FileWriterParams) {
 // prefix will be added to each counter name in this group.
 func Group(format string, v ...interface{}) *CountersGroup {
 	return &CountersGroup{
-		prefix:   fmt.Sprintf(format, v),
+		prefix:   fmt.Sprintf(format, v...),
 		counters: make(map[string]*Counter),
 	}
 }
