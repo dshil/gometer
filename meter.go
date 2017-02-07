@@ -82,11 +82,11 @@ func registerCounter(metrics *Metrics, counterName string, counter *Counter) err
 
 // RegisterGroup registers a collection of counters in the metric collection, returns
 // an error if a counter with such name exists.
-func (m *Metrics) RegisterGroup(group *GroupCounter) error {
+func (m *Metrics) RegisterGroup(group *CountersGroup) error {
 	return registerGroup(m, group)
 }
 
-func registerGroup(metrics *Metrics, group *GroupCounter) error {
+func registerGroup(metrics *Metrics, group *CountersGroup) error {
 	counters := group.Counters()
 
 	for name, counter := range counters {
@@ -117,9 +117,13 @@ func (m *Metrics) SetErrorHandler(e ErrorHandler) {
 	m.errHandler = e
 }
 
-// Group returns new group counter.
-func (m *Metrics) Group() *GroupCounter {
-	return &GroupCounter{
+// Group returns new counters group.
+//
+// During the registration a group of counters in the metrics collection, the base
+// prefix will be added to the each counter name in this group.
+func (m *Metrics) Group(format string, v ...interface{}) *CountersGroup {
+	return &CountersGroup{
+		prefix:   fmt.Sprintf(format, v...),
 		counters: make(map[string]*Counter),
 	}
 }
@@ -256,15 +260,19 @@ func StartFileWriter(ctx context.Context, p FileWriterParams) {
 	go startFileWriter(ctx, std, p)
 }
 
-// Group returns new group counter.
-func Group() *GroupCounter {
-	return &GroupCounter{
+// Group returns new group counter for the default metrics collection..
+//
+// During the registration a group of counters in the metrics collection, the base
+// prefix will be added to each counter name in this group.
+func Group(format string, v ...interface{}) *CountersGroup {
+	return &CountersGroup{
+		prefix:   fmt.Sprintf(format, v),
 		counters: make(map[string]*Counter),
 	}
 }
 
 // RegisterGroup registers a collection of counters in the default metric collection,
 // returns an error if a counter with such name exists.
-func RegisterGroup(group *GroupCounter) error {
+func RegisterGroup(group *CountersGroup) error {
 	return registerGroup(std, group)
 }
