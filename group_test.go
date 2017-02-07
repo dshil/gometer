@@ -7,18 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGroupCounterWithPrefix(t *testing.T) {
+func TestCountersGroupAdd(t *testing.T) {
 	metrics := New()
-
-	group := metrics.Group().WithPrefix("foo.%s.baz", "bar")
-
-	require.NotNil(t, group)
-	assert.Equal(t, "foo.bar.baz", group.Prefix())
-}
-
-func TestGroupCounterAdd(t *testing.T) {
-	metrics := New()
-	group := metrics.Group().WithPrefix("foo")
+	group := metrics.Group("foo.")
 
 	counter := Counter{}
 	counter.Add(10)
@@ -29,17 +20,10 @@ func TestGroupCounterAdd(t *testing.T) {
 	assert.Equal(t, int64(10), got.Get())
 }
 
-func TestGroupCounterWithSeparator(t *testing.T) {
+func TestCountersGroupCounters(t *testing.T) {
 	metrics := New()
-	group := metrics.Group().WithPrefix("foo.%s", "bar").WithSeparator(".")
-	require.NotNil(t, group)
 
-	assert.Equal(t, ".", group.Separator())
-}
-
-func TestGroupCounterCounters(t *testing.T) {
-	metrics := New()
-	group := metrics.Group().WithPrefix("foo.%s", "bar").WithSeparator(".")
+	group := metrics.Group("%s.", "foo")
 	require.NotNil(t, group)
 
 	bazCounter := Counter{}
@@ -50,7 +34,7 @@ func TestGroupCounterCounters(t *testing.T) {
 	groupCounters := group.Counters()
 	require.Len(t, groupCounters, 1)
 
-	gotBazCounter := groupCounters["foo.bar.baz"]
+	gotBazCounter := groupCounters["foo.baz"]
 	require.NotNil(t, gotBazCounter)
 
 	assert.Equal(t, int64(10), gotBazCounter.Get())

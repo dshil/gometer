@@ -168,7 +168,7 @@ func TestMetricsDefault(t *testing.T) {
 	require.NotNil(t, counter)
 	assert.Equal(t, int64(10), counter.Get())
 
-	group := Group()
+	group := Group("foo.%s", "bar")
 	assert.NotNil(t, group)
 
 	err = RegisterGroup(group)
@@ -215,14 +215,14 @@ func TestMetricsGetCounter(t *testing.T) {
 func TestMetricsGroup(t *testing.T) {
 	metrics := New()
 
-	group := metrics.Group()
+	group := metrics.Group("foo")
 	assert.NotNil(t, group)
 }
 
 func TestMetricsRegisterGroup(t *testing.T) {
 	metrics := New()
 
-	group := metrics.Group().WithPrefix("foo").WithSeparator(".")
+	group := metrics.Group("foo.")
 
 	barCounter := Counter{}
 	barCounter.Add(100)
