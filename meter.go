@@ -124,7 +124,7 @@ func (m *Metrics) SetErrorHandler(e ErrorHandler) {
 func (m *Metrics) Group(format string, v ...interface{}) *CountersGroup {
 	return &CountersGroup{
 		prefix:   fmt.Sprintf(format, v...),
-		counters: make(map[string]*DefaultCounter),
+		counters: make(map[string]Counter),
 	}
 }
 
@@ -267,7 +267,7 @@ func StartFileWriter(ctx context.Context, p FileWriterParams) {
 func Group(format string, v ...interface{}) *CountersGroup {
 	return &CountersGroup{
 		prefix:   fmt.Sprintf(format, v...),
-		counters: make(map[string]*DefaultCounter),
+		counters: make(map[string]Counter),
 	}
 }
 
