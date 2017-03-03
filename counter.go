@@ -3,21 +3,33 @@ package gometer
 import "sync/atomic"
 
 // Counter represents a kind of metric.
-type Counter struct {
+type Counter interface {
+	// Add adds the corresponding value to counter.
+	Add(v int64)
+
+	// Get returns the corresponding value for counter.
+	Get() int64
+
+	// Set sets the value to counter. Value can be negative.
+	Set(v int64)
+}
+
+// DefaultCounter implements Counter.
+type DefaultCounter struct {
 	val int64
 }
 
-// Add adds the corresponding value to counter.
-func (c *Counter) Add(val int64) {
+// Add implements Counter.Add
+func (c *DefaultCounter) Add(val int64) {
 	atomic.AddInt64(&c.val, val)
 }
 
-// Get returns the corresponding value for counter.
-func (c *Counter) Get() int64 {
+// Get implements Counter.Get
+func (c *DefaultCounter) Get() int64 {
 	return atomic.LoadInt64(&c.val)
 }
 
-// Set sets the value to counter. Value can be negative.
-func (c *Counter) Set(val int64) {
+// Set implements Counter.Set
+func (c *DefaultCounter) Set(val int64) {
 	atomic.StoreInt64(&c.val, val)
 }

@@ -35,7 +35,7 @@ func ExampleWriteToStdout() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(gometer.NewFormatter("\n"))
 
-	c := gometer.Counter{}
+	c := gometer.DefaultCounter{}
 	c.Add(1)
 	if err := metrics.Register("http_requests_total", &c); err != nil {
 		fmt.Println(err.Error())
@@ -67,7 +67,7 @@ import (
 
 type simpleFormatter struct{}
 
-func (f *simpleFormatter) Format(counters map[string]*gometer.Counter) []byte {
+func (f *simpleFormatter) Format(counters map[string]gometer.Counter) []byte {
 	var buf bytes.Buffer
 	for name, counter := range counters {
 		line := fmt.Sprintf("%v, %v", name, counter.Get()) + "\n"
@@ -83,7 +83,7 @@ func ExampleSimpleFormatter() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(new(simpleFormatter))
 
-	c := gometer.Counter{}
+	c := gometer.DefaultCounter{}
 	c.Add(100)
 	if err := metrics.Register("http_requests_total", &c); err != nil {
 		fmt.Println(err.Error())
@@ -99,7 +99,7 @@ func ExampleSimpleFormatter() {
 
 type sortByNameFormatter struct{}
 
-func (f *sortByNameFormatter) Format(counters map[string]*gometer.Counter) []byte {
+func (f *sortByNameFormatter) Format(counters map[string]gometer.Counter) []byte {
 	var buf bytes.Buffer
 
 	var names []string
@@ -124,21 +124,21 @@ func ExampleSortByNameFormatter() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(new(sortByNameFormatter))
 
-	adder := gometer.Counter{}
+	adder := gometer.DefaultCounter{}
 	adder.Add(10)
 	if err := metrics.Register("adder", &adder); err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
-	setter := gometer.Counter{}
+	setter := gometer.DefaultCounter{}
 	setter.Set(-1)
 	if err := metrics.Register("setter", &setter); err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
-	inc := gometer.Counter{}
+	inc := gometer.DefaultCounter{}
 	inc.Add(1)
 	if err := metrics.Register("inc", &inc); err != nil {
 		fmt.Println(err.Error())

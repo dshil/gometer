@@ -7,13 +7,13 @@ import (
 )
 
 func TestCounterAdd(t *testing.T) {
-	c := Counter{}
+	c := DefaultCounter{}
 	c.Add(10)
 	assert.Equal(t, int64(10), c.Get())
 }
 
 func TestCounterSet(t *testing.T) {
-	c := Counter{}
+	c := DefaultCounter{}
 	c.Set(10)
 	assert.Equal(t, int64(10), c.Get())
 
