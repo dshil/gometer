@@ -15,7 +15,7 @@ import (
 type Metrics struct {
 	mu         sync.Mutex
 	out        io.Writer
-	counters   map[string]*Counter
+	counters   map[string]Counter
 	formatter  Formatter
 	errHandler ErrorHandler
 }
@@ -34,7 +34,7 @@ var std = New()
 func New() *Metrics {
 	m := &Metrics{
 		out:       os.Stderr,
-		counters:  make(map[string]*Counter),
+		counters:  make(map[string]Counter),
 		formatter: NewFormatter("\n"),
 	}
 	return m
@@ -64,11 +64,11 @@ func (m *Metrics) Formatter() Formatter {
 
 // Register registers new counter in metric collection, returns error if
 // counter with such name exists.
-func (m *Metrics) Register(counterName string, c *Counter) error {
+func (m *Metrics) Register(counterName string, c *DefaultCounter) error {
 	return registerCounter(m, counterName, c)
 }
 
-func registerCounter(metrics *Metrics, counterName string, counter *Counter) error {
+func registerCounter(metrics *Metrics, counterName string, counter Counter) error {
 	metrics.mu.Lock()
 	defer metrics.mu.Unlock()
 
@@ -98,11 +98,11 @@ func registerGroup(metrics *Metrics, group *CountersGroup) error {
 }
 
 // Get returns counter by name or nil if counter doesn't exist.
-func (m *Metrics) Get(counterName string) *Counter {
+func (m *Metrics) Get(counterName string) Counter {
 	return getCounter(m, counterName)
 }
 
-func getCounter(m *Metrics, counterName string) *Counter {
+func getCounter(m *Metrics, counterName string) Counter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	c := m.counters[counterName]
@@ -124,7 +124,7 @@ func (m *Metrics) SetErrorHandler(e ErrorHandler) {
 func (m *Metrics) Group(format string, v ...interface{}) *CountersGroup {
 	return &CountersGroup{
 		prefix:   fmt.Sprintf(format, v...),
-		counters: make(map[string]*Counter),
+		counters: make(map[string]*DefaultCounter),
 	}
 }
 
@@ -228,12 +228,12 @@ func SetFormatter(f Formatter) {
 
 // Register registers new counter in metric collection, returns error if
 // counter with such name exists.
-func Register(counterName string, c *Counter) error {
+func Register(counterName string, c Counter) error {
 	return registerCounter(std, counterName, c)
 }
 
 // Get returns counter by name or nil if counter doesn't exist.
-func Get(counterName string) *Counter {
+func Get(counterName string) Counter {
 	return getCounter(std, counterName)
 }
 
@@ -267,7 +267,7 @@ func StartFileWriter(ctx context.Context, p FileWriterParams) {
 func Group(format string, v ...interface{}) *CountersGroup {
 	return &CountersGroup{
 		prefix:   fmt.Sprintf(format, v...),
-		counters: make(map[string]*Counter),
+		counters: make(map[string]*DefaultCounter),
 	}
 }
 

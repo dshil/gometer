@@ -22,7 +22,7 @@ func TestMetricsStartFileWriter(t *testing.T) {
 		metrics.StartFileWriter(nil, FileWriterParams{})
 	})
 
-	inc := Counter{}
+	inc := DefaultCounter{}
 	inc.Add(10)
 	err := metrics.Register("add_num", &inc)
 	require.Nil(t, err)
@@ -42,7 +42,7 @@ func TestMetricsStartFileWriter(t *testing.T) {
 	})
 	cancel()
 
-	inc1 := Counter{}
+	inc1 := DefaultCounter{}
 	inc1.Add(4)
 	err = metrics.Register("inc_num", &inc1)
 	require.Nil(t, err)
@@ -96,7 +96,7 @@ func TestMetricsSetFormatter(t *testing.T) {
 	metrics.SetOutput(file)
 	metrics.SetFormatter(NewFormatter("\n"))
 
-	c := Counter{}
+	c := DefaultCounter{}
 	c.Add(10)
 	err := metrics.Register("test_counter", &c)
 	require.Nil(t, err)
@@ -140,7 +140,7 @@ func TestMetricsDefault(t *testing.T) {
 	SetFormatter(NewFormatter("\n"))
 	assert.NotNil(t, std.formatter)
 
-	c := Counter{}
+	c := DefaultCounter{}
 	c.Add(10)
 	err := Register("default_metrics_counter", &c)
 	require.Nil(t, err)
@@ -189,7 +189,7 @@ func TestMetricsSetErrorHandler(t *testing.T) {
 
 func TestMetricsExistingCounter(t *testing.T) {
 	metrics := New()
-	counter := Counter{}
+	counter := DefaultCounter{}
 	err := metrics.Register("existing_metrics", &counter)
 	require.Nil(t, err)
 
@@ -202,7 +202,7 @@ func TestMetricsGetCounter(t *testing.T) {
 	c := metrics.Get("not_existing_counter")
 	require.Nil(t, c)
 
-	counter := Counter{}
+	counter := DefaultCounter{}
 	counter.Set(10)
 	err := metrics.Register("get_counter", &counter)
 	require.Nil(t, err)
@@ -224,10 +224,10 @@ func TestMetricsRegisterGroup(t *testing.T) {
 
 	group := metrics.Group("foo.")
 
-	barCounter := Counter{}
+	barCounter := DefaultCounter{}
 	barCounter.Add(100)
 
-	bazCounter := Counter{}
+	bazCounter := DefaultCounter{}
 	bazCounter.Add(140)
 
 	group.Add("bar", &barCounter)

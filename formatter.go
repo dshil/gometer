@@ -10,7 +10,7 @@ import (
 type Formatter interface {
 	// Format is defined how metrics will be dumped
 	// to output destination.
-	Format(counters map[string]*Counter) []byte
+	Format(counters map[string]Counter) []byte
 }
 
 // NewFormatter returns new default formatter.
@@ -30,7 +30,7 @@ func NewFormatter(lineSeparator string) Formatter {
 }
 
 type sortedMap struct {
-	m map[string]*Counter
+	m map[string]Counter
 	s []string
 }
 
@@ -46,7 +46,7 @@ func (sm *sortedMap) Swap(i, j int) {
 	sm.s[i], sm.s[j] = sm.s[j], sm.s[i]
 }
 
-func sortedKeys(m map[string]*Counter) []string {
+func sortedKeys(m map[string]Counter) []string {
 	sm := new(sortedMap)
 	sm.m = m
 	sm.s = make([]string, len(m))
@@ -63,7 +63,7 @@ type defaultFormatter struct {
 	lineSeparator string
 }
 
-func (f *defaultFormatter) Format(counters map[string]*Counter) []byte {
+func (f *defaultFormatter) Format(counters map[string]Counter) []byte {
 	var buf bytes.Buffer
 
 	for _, n := range sortedKeys(counters) {
