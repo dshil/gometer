@@ -97,6 +97,8 @@ func ExampleSimpleFormatter() {
 	// Output: http_requests_total, 100
 }
 
+var _ gometer.Formatter = (*simpleFormatter)(nil)
+
 type sortByNameFormatter struct{}
 
 func (f *sortByNameFormatter) Format(counters map[string]gometer.Counter) []byte {
