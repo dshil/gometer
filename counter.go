@@ -33,3 +33,8 @@ func (c *DefaultCounter) Get() int64 {
 func (c *DefaultCounter) Set(val int64) {
 	atomic.StoreInt64(&c.val, val)
 }
+
+// AddAndGet adds val to a counter and returns an updated value.
+func (c *DefaultCounter) AddAndGet(val int64) int64 {
+	return atomic.AddInt64(&c.val, val)
+}
