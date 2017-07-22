@@ -1,8 +1,8 @@
-# gometer [![GoDoc](https://godoc.org/github.com/dshil/gometer?status.svg)](https://godoc.org/github.com/dshil/gometer) [![Build Status](https://travis-ci.org/dshil/gometer.svg?branch=master)](https://travis-ci.org/dshil/gometer) [![Go Report Card](https://goreportcard.com/badge/github.com/dshil/gometer)](https://goreportcard.com/report/github.com/dshil/gometer) [![Coverage Status](https://coveralls.io/repos/github/dshil/gometer/badge.svg)](https://coveralls.io/github/dshil/gometer) [![codebeat badge](https://codebeat.co/badges/e194755f-ceda-48dd-8c6d-dcfbca04e07b)](https://codebeat.co/projects/github-com-dshil-gometer)
+# gometer [![GoDoc](https://godoc.org/github.com/dshil/gometer?status.svg)](https://godoc.org/github.com/dshil/gometer) [![Build Status](https://travis-ci.org/dshil/gometer.svg?branch=master)](https://travis-ci.org/dshil/gometer) [![Go Report Card](https://goreportcard.com/badge/github.com/dshil/gometer)](https://goreportcard.com/report/github.com/dshil/gometer) [![Coverage Status](https://coveralls.io/repos/github/dshil/gometer/badge.svg)](https://coveralls.io/github/dshil/gometer)
 `gometer` is a small library for your application's metrics.
 
-Basically, the main goal of `gometer` is to represent key-value metrics in some format.   
-Later these formatted metrics can be used by other services (e.g. Zabbix).
+The main goal of `gometer` is to be very simple, small and stupid, and to write
+formatted key-value metrics somewhere.
 
 ## Installation
 

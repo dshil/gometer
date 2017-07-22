@@ -4,13 +4,13 @@ import "sync/atomic"
 
 // Counter represents a kind of metric.
 type Counter interface {
-	// Add adds the corresponding value to counter.
+	// Add adds the corresponding value to a counter.
 	Add(v int64)
 
-	// Get returns the corresponding value for counter.
+	// Get returns the corresponding value for a counter.
 	Get() int64
 
-	// Set sets the value to counter. Value can be negative.
+	// Set sets the value to a counter. Value can be negative.
 	Set(v int64)
 }
 

@@ -9,8 +9,8 @@ type CountersGroup struct {
 	prefix   string
 }
 
-// Add adds new counter in the group of counters.
-// If a counter with `counterName` exists, it'll be overwritten.
+// Add adds new counter in the group of counters. If a counter with `counterName` exists,
+// it'll be overwritten.
 func (g *CountersGroup) Add(counterName string, counter Counter) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
