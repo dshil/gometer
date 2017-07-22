@@ -21,7 +21,7 @@ func TestCounterSet(t *testing.T) {
 	assert.Equal(t, int64(-10), c.Get())
 }
 
-func TestCounterAddAndGet(t *testing.T)  {
+func TestCounterAddAndGet(t *testing.T) {
 	c := DefaultCounter{}
 	v := c.AddAndGet(10)
 	assert.Equal(t, int64(10), v)
