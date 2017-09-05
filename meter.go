@@ -20,7 +20,8 @@ type Metrics struct {
 	errHandler ErrorHandler
 }
 
-var std = New()
+// Default is a standard metrics object.
+var Default = New()
 
 // New creates new empty collection of metrics.
 //
@@ -204,42 +205,42 @@ func write(m *Metrics) error {
 
 // SetOutput sets output destination for standard metrics.
 func SetOutput(out io.Writer) {
-	std.mu.Lock()
-	defer std.mu.Unlock()
-	std.out = out
+	Default.mu.Lock()
+	defer Default.mu.Unlock()
+	Default.out = out
 }
 
 // SetFormatter sets formatter for standard metrics.
 // Fore more details see Metrics.SetFormatter().
 func SetFormatter(f Formatter) {
-	std.mu.Lock()
-	defer std.mu.Unlock()
-	std.formatter = f
+	Default.mu.Lock()
+	defer Default.mu.Unlock()
+	Default.formatter = f
 }
 
 // Register registers a new counter in a metric collection, returns an error if a counter
 // with such name exists.
 func Register(counterName string, c Counter) error {
-	return registerCounter(std, counterName, c)
+	return registerCounter(Default, counterName, c)
 }
 
 // Get returns a counter by name or nil if the counter doesn't exist.
 func Get(counterName string) Counter {
-	return getCounter(std, counterName)
+	return getCounter(Default, counterName)
 }
 
 // SetErrorHandler sets error handler for errors that can happen during writing metrics
 // to a file asynchronously.
 func SetErrorHandler(e ErrorHandler) {
-	std.mu.Lock()
-	defer std.mu.Unlock()
-	std.errHandler = e
+	Default.mu.Lock()
+	defer Default.mu.Unlock()
+	Default.errHandler = e
 }
 
 // Write all existing metrics to an output destination.
 // For more details see Metrics.Write().
 func Write() error {
-	return write(std)
+	return write(Default)
 }
 
 // StartFileWriter writes all metrics to a clear file.
@@ -248,7 +249,7 @@ func StartFileWriter(ctx context.Context, p FileWriterParams) {
 	if ctx == nil {
 		panic("nil Context")
 	}
-	go startFileWriter(ctx, std, p)
+	go startFileWriter(ctx, Default, p)
 }
 
 // Group returns new group counter for the default metrics collection..
@@ -265,5 +266,5 @@ func Group(format string, v ...interface{}) *CountersGroup {
 // RegisterGroup registers a collection of counters in a default metric collection,
 // returns an error if a counter with such name exists.
 func RegisterGroup(group *CountersGroup) error {
-	return registerGroup(std, group)
+	return registerGroup(Default, group)
 }
