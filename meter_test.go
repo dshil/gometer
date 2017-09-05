@@ -138,7 +138,7 @@ func TestMetricsDefault(t *testing.T) {
 	SetOutput(newTestFile(t, "test_file"))
 
 	SetFormatter(NewFormatter("\n"))
-	assert.NotNil(t, std.formatter)
+	assert.NotNil(t, Default.formatter)
 
 	c := DefaultCounter{}
 	c.Add(10)
@@ -151,7 +151,7 @@ func TestMetricsDefault(t *testing.T) {
 	require.Nil(t, err)
 
 	SetErrorHandler(new(mockErrorHandler))
-	assert.NotNil(t, std.errHandler)
+	assert.NotNil(t, Default.errHandler)
 
 	require.Panics(t, func() {
 		StartFileWriter(nil, FileWriterParams{})
