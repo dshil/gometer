@@ -1,7 +1,6 @@
 package gometer
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +17,7 @@ type Metrics struct {
 	counters   map[string]Counter
 	formatter  Formatter
 	errHandler ErrorHandler
+	stopCh     chan struct{}
 }
 
 // Default is a standard metrics object.
@@ -142,16 +142,15 @@ type FileWriterParams struct {
 }
 
 // StartFileWriter starts a goroutine that will periodically writes metrics to a file.
-func (m *Metrics) StartFileWriter(ctx context.Context, p FileWriterParams) {
-	if ctx == nil {
-		panic("nil Context")
-	}
-	go startFileWriter(ctx, m, p)
+func (m *Metrics) StartFileWriter(p FileWriterParams) {
+	m.stopCh = make(chan struct{})
+	go startFileWriter(m, p)
 }
 
-func startFileWriter(ctx context.Context, m *Metrics, p FileWriterParams) {
+func startFileWriter(m *Metrics, p FileWriterParams) {
 	ticker := time.NewTicker(p.UpdateInterval)
 	defer ticker.Stop()
+	defer close(m.stopCh)
 
 	for {
 		select {
@@ -163,9 +162,21 @@ func startFileWriter(ctx context.Context, m *Metrics, p FileWriterParams) {
 				}
 				panic(err)
 			}
-		case <-ctx.Done():
+		case <-m.stopCh:
 			return
 		}
+	}
+}
+
+// StopFileWriter stops a goroutine that will periodically writes metrics to a file.
+func (m *Metrics) StopFileWriter() {
+	stopFileWriter(m)
+}
+
+func stopFileWriter(m *Metrics) {
+	if m.stopCh != nil {
+		m.stopCh <- struct{}{}
+		<-m.stopCh
 	}
 }
 
@@ -245,11 +256,13 @@ func Write() error {
 
 // StartFileWriter writes all metrics to a clear file.
 // For more details see Metrics.WriteToFile().
-func StartFileWriter(ctx context.Context, p FileWriterParams) {
-	if ctx == nil {
-		panic("nil Context")
-	}
-	go startFileWriter(ctx, Default, p)
+func StartFileWriter(p FileWriterParams) {
+	Default.StartFileWriter(p)
+}
+
+// StopFileWriter stops a goroutine that will periodically writes metrics to a file.
+func StopFileWriter() {
+	Default.StopFileWriter()
 }
 
 // Group returns new group counter for the default metrics collection..
