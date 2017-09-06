@@ -1,7 +1,6 @@
 package gometer
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -18,17 +17,12 @@ func TestMetricsStartFileWriter(t *testing.T) {
 	metrics := New()
 	metrics.SetFormatter(NewFormatter("\n"))
 
-	require.Panics(t, func() {
-		metrics.StartFileWriter(nil, FileWriterParams{})
-	})
-
 	inc := DefaultCounter{}
 	inc.Add(10)
 	err := metrics.Register("add_num", &inc)
 	require.Nil(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	metrics.StartFileWriter(ctx, FileWriterParams{
+	metrics.StartFileWriter(FileWriterParams{
 		FilePath:       fileName,
 		UpdateInterval: time.Second * 1,
 	})
@@ -38,17 +32,15 @@ func TestMetricsStartFileWriter(t *testing.T) {
 		lineSeparator: "\n",
 		expMetricCnt:  1,
 		waitDur:       time.Second * 2,
-		cancel:        cancel,
 	})
-	cancel()
+	metrics.StopFileWriter()
 
 	inc1 := DefaultCounter{}
 	inc1.Add(4)
 	err = metrics.Register("inc_num", &inc1)
 	require.Nil(t, err)
 
-	ctx, cancel = context.WithCancel(context.Background())
-	metrics.StartFileWriter(ctx, FileWriterParams{
+	metrics.StartFileWriter(FileWriterParams{
 		FilePath:       fileName,
 		UpdateInterval: time.Second * 2,
 	})
@@ -58,9 +50,8 @@ func TestMetricsStartFileWriter(t *testing.T) {
 		lineSeparator: "\n",
 		expMetricCnt:  2,
 		waitDur:       time.Second * 3,
-		cancel:        cancel,
 	})
-	cancel()
+	metrics.StopFileWriter()
 }
 
 type testWriteToFileParams struct {
@@ -70,7 +61,6 @@ type testWriteToFileParams struct {
 	expMetricCnt int
 
 	waitDur time.Duration
-	cancel  context.CancelFunc
 }
 
 func testWriteToFile(t *testing.T, p testWriteToFileParams) {
@@ -153,16 +143,11 @@ func TestMetricsDefault(t *testing.T) {
 	SetErrorHandler(new(mockErrorHandler))
 	assert.NotNil(t, Default.errHandler)
 
-	require.Panics(t, func() {
-		StartFileWriter(nil, FileWriterParams{})
-	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	StartFileWriter(ctx, FileWriterParams{
+	StartFileWriter(FileWriterParams{
 		FilePath:       "test_default_metrics",
 		UpdateInterval: time.Minute,
 	})
-	cancel()
+	StopFileWriter()
 
 	counter := Get("default_metrics_counter")
 	require.NotNil(t, counter)
