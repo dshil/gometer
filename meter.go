@@ -177,6 +177,7 @@ func stopFileWriter(m *Metrics) {
 	if m.stopCh != nil {
 		m.stopCh <- struct{}{}
 		<-m.stopCh
+		m.stopCh = nil
 	}
 }
 
