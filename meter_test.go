@@ -12,6 +12,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestMetricsStopWithoutStart(t *testing.T) {
+	metrics := New()
+	metrics.StopFileWriter()
+}
+
+func TestMetricsStopTwice(t *testing.T) {
+	metrics := New()
+	metrics.StartFileWriter(FileWriterParams{
+		FilePath:       "/dev/null",
+		UpdateInterval: time.Second * 1,
+	})
+	metrics.StopFileWriter()
+	metrics.StopFileWriter()
+}
+
 func TestMetricsStartFileWriter(t *testing.T) {
 	fileName := "test_write_to_file"
 	metrics := New()
