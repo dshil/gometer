@@ -240,3 +240,23 @@ func TestMetricsRegisterGroup(t *testing.T) {
 	require.NotNil(t, gotBar)
 	assert.Equal(t, int64(100), gotBar.Get())
 }
+
+func TestMetricsGetJSON(t *testing.T) {
+	metrics := New()
+
+	counter1 := new(DefaultCounter)
+	counter1.Set(10)
+	require.Nil(t, metrics.Register("counter1", counter1))
+
+	counter2 := new(DefaultCounter)
+	counter2.Set(42)
+	require.Nil(t, metrics.Register("counter2", counter2))
+
+	b, err := metrics.GetJSON("count*")
+	assert.Nil(t, err)
+	assert.JSONEq(t, `{"counter1": 10, "counter2": 42}`, string(b))
+
+	b, err = metrics.GetJSON("*2")
+	assert.Nil(t, err)
+	assert.JSONEq(t, `{"counter2": 42}`, string(b))
+}
