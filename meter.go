@@ -1,6 +1,7 @@
 package gometer
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dchest/safefile"
+	"github.com/gobwas/glob"
 )
 
 // Metrics is a collection of metrics.
@@ -102,6 +104,35 @@ func getCounter(m *Metrics, counterName string) Counter {
 	defer m.mu.Unlock()
 	c := m.counters[counterName]
 	return c
+}
+
+// GetJSON filters counters by glob pattern and returns them as a json marshaled
+// map.
+func (m *Metrics) GetJSON(pattern string) ([]byte, error) {
+	return getJSON(m, pattern)
+}
+
+func getJSON(m *Metrics, pattern string) ([]byte, error) {
+	g, err := glob.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]int64)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for k, v := range m.counters {
+		if g.Match(k) {
+			result[k] = v.Get()
+		}
+	}
+
+	b, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 // SetErrorHandler sets error handler for errors that can happen during writing metrics
@@ -239,6 +270,12 @@ func Register(counterName string, c Counter) error {
 // Get returns a counter by name or nil if the counter doesn't exist.
 func Get(counterName string) Counter {
 	return getCounter(Default, counterName)
+}
+
+// GetJSON filters counters by glob pattern and returns them as a json marshaled
+// map.
+func GetJSON(pattern string) ([]byte, error) {
+	return getJSON(Default, pattern)
 }
 
 // SetErrorHandler sets error handler for errors that can happen during writing metrics
