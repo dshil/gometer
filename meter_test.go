@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -13,89 +14,63 @@ import (
 )
 
 func TestMetricsStopWithoutStart(t *testing.T) {
+	t.Parallel()
+
 	metrics := New()
 	metrics.StopFileWriter()
 }
 
 func TestMetricsStopTwice(t *testing.T) {
+	t.Parallel()
+
 	metrics := New()
 	metrics.StartFileWriter(FileWriterParams{
-		FilePath:       "/dev/null",
-		UpdateInterval: time.Second * 1,
+		FilePath:       os.DevNull,
+		UpdateInterval: time.Millisecond * 100,
 	})
 	metrics.StopFileWriter()
 	metrics.StopFileWriter()
 }
 
 func TestMetricsStartFileWriter(t *testing.T) {
-	fileName := "test_write_to_file"
+	t.Parallel()
+
+	file := newTempFile(t)
+	require.Nil(t, file.Close())
+	defer os.Remove(file.Name())
+
 	metrics := New()
-	metrics.SetFormatter(NewFormatter("\n"))
+	lineSep := "\n"
 
 	inc := DefaultCounter{}
 	inc.Add(10)
-	err := metrics.Register("add_num", &inc)
-	require.Nil(t, err)
+	require.Nil(t, metrics.Register("add_num", &inc))
 
 	metrics.StartFileWriter(FileWriterParams{
-		FilePath:       fileName,
-		UpdateInterval: time.Second * 1,
+		FilePath:       file.Name(),
+		UpdateInterval: time.Millisecond * 100,
 	})
 
-	testWriteToFile(t, testWriteToFileParams{
-		fileName:      fileName,
-		lineSeparator: "\n",
-		expMetricCnt:  1,
-		waitDur:       time.Second * 2,
+	checkFileWriter(t, file.Name(), lineSep, map[string]int64{
+		"add_num": int64(10),
 	})
-	metrics.StopFileWriter()
 
 	inc1 := DefaultCounter{}
 	inc1.Add(4)
-	err = metrics.Register("inc_num", &inc1)
-	require.Nil(t, err)
+	require.Nil(t, metrics.Register("inc_num", &inc1))
 
-	metrics.StartFileWriter(FileWriterParams{
-		FilePath:       fileName,
-		UpdateInterval: time.Second * 2,
+	checkFileWriter(t, file.Name(), lineSep, map[string]int64{
+		"add_num": int64(10),
+		"inc_num": int64(4),
 	})
-
-	testWriteToFile(t, testWriteToFileParams{
-		fileName:      fileName,
-		lineSeparator: "\n",
-		expMetricCnt:  2,
-		waitDur:       time.Second * 3,
-	})
-	metrics.StopFileWriter()
-}
-
-type testWriteToFileParams struct {
-	fileName      string
-	lineSeparator string
-
-	expMetricCnt int
-
-	waitDur time.Duration
-}
-
-func testWriteToFile(t *testing.T, p testWriteToFileParams) {
-	time.Sleep(p.waitDur)
-
-	data, err := ioutil.ReadFile(p.fileName)
-	require.Nil(t, err)
-
-	err = os.Remove(p.fileName)
-	require.Nil(t, err)
-
-	metrics := strings.TrimSuffix(string(data), p.lineSeparator)
-	metricsData := strings.Split(metrics, p.lineSeparator)
-	require.Equal(t, p.expMetricCnt, len(metricsData))
 }
 
 func TestMetricsSetFormatter(t *testing.T) {
-	fileName := "test_set_formatter"
-	file := newTestFile(t, fileName)
-	defer closeAndRemoveTestFile(t, file)
+	t.Parallel()
+
+	file := newTempFile(t)
+	fileName := file.Name()
+	defer removeTempFile(t, file)
 
 	metrics := New()
 	metrics.SetOutput(file)
@@ -103,11 +78,9 @@ func TestMetricsSetFormatter(t *testing.T) {
 
 	c := DefaultCounter{}
 	c.Add(10)
-	err := metrics.Register("test_counter", &c)
-	require.Nil(t, err)
 
-	err = metrics.Write()
-	require.Nil(t, err)
+	require.Nil(t, metrics.Register("test_counter", &c))
+	require.Nil(t, metrics.Write())
 
 	data, err := ioutil.ReadFile(fileName)
 	require.Nil(t, err)
@@ -121,46 +94,39 @@ func TestMetricsSetFormatter(t *testing.T) {
 }
 
 func TestMetricsFormatter(t *testing.T) {
+	t.Parallel()
+
 	metrics := New()
 	metrics.SetFormatter(NewFormatter("\n"))
 	assert.NotNil(t, metrics.Formatter())
 }
 
-func newTestFile(t *testing.T, fileName string) *os.File {
-	file, err := os.Create(fileName)
-	require.Nil(t, err)
-	return file
-}
-
-func closeAndRemoveTestFile(t *testing.T, f *os.File) {
-	err := f.Close()
-	require.Nil(t, err)
-	err = os.Remove(f.Name())
-	require.Nil(t, err)
-}
-
 func TestMetricsDefault(t *testing.T) {
-	SetOutput(newTestFile(t, "test_file"))
+	t.Parallel()
 
+	file := newTempFile(t)
+
+	SetOutput(file)
 	SetFormatter(NewFormatter("\n"))
-	assert.NotNil(t, Default.formatter)
+
+	require.NotNil(t, Default.formatter)
 
 	c := DefaultCounter{}
 	c.Add(10)
-	err := Register("default_metrics_counter", &c)
-	require.Nil(t, err)
 
-	err = Write()
-	require.Nil(t, err)
-	err = os.Remove("test_file")
-	require.Nil(t, err)
+	require.Nil(t, Register("default_metrics_counter", &c))
+	require.Nil(t, Write())
+	removeTempFile(t, file)
 
 	SetErrorHandler(new(mockErrorHandler))
 	assert.NotNil(t, Default.errHandler)
 
+	file = newTempFile(t)
+	defer removeTempFile(t, file)
+
 	StartFileWriter(FileWriterParams{
-		FilePath:       "test_default_metrics",
-		UpdateInterval: time.Minute,
+		FilePath:       file.Name(),
+		UpdateInterval: time.Millisecond * 100,
 	})
 	StopFileWriter()
 
@@ -171,41 +137,37 @@ func TestMetricsDefault(t *testing.T) {
 	group := Group("foo.%s", "bar")
 	assert.NotNil(t, group)
 
-	err = RegisterGroup(group)
-	assert.Nil(t, err)
-}
-
-type mockErrorHandler struct{}
-
-func (e *mockErrorHandler) Handle(err error) {
-	fmt.Fprintf(os.Stderr, "failed to write metrics file, %v\n", err)
+	assert.Nil(t, RegisterGroup(group))
 }
 
 func TestMetricsSetErrorHandler(t *testing.T) {
+	t.Parallel()
+
 	metrics := New()
 	metrics.SetErrorHandler(new(mockErrorHandler))
 	assert.NotNil(t, metrics.errHandler)
 }
 
 func TestMetricsExistingCounter(t *testing.T) {
+	t.Parallel()
+
 	metrics := New()
 	counter := DefaultCounter{}
-	err := metrics.Register("existing_metrics", &counter)
-	require.Nil(t, err)
 
-	err = metrics.Register("existing_metrics", &counter)
-	require.NotNil(t, err)
+	require.Nil(t, metrics.Register("existing_metrics", &counter))
+	assert.NotNil(t, metrics.Register("existing_metrics", &counter))
 }
 
 func TestMetricsGetCounter(t *testing.T) {
+	t.Parallel()
+
 	metrics := New()
 	c := metrics.Get("not_existing_counter")
 	require.Nil(t, c)
 
 	counter := DefaultCounter{}
 	counter.Set(10)
-	err := metrics.Register("get_counter", &counter)
-	require.Nil(t, err)
+	require.Nil(t, metrics.Register("get_counter", &counter))
 
 	c = metrics.Get("get_counter")
 	require.NotNil(t, c)
@@ -213,6 +175,8 @@ func TestMetricsGetCounter(t *testing.T) {
 }
 
 func TestMetricsGroup(t *testing.T) {
+	t.Parallel()
+
 	metrics := New()
 
 	group := metrics.Group("foo")
@@ -220,6 +184,8 @@ func TestMetricsGroup(t *testing.T) {
 }
 
 func TestMetricsRegisterGroup(t *testing.T) {
+	t.Parallel()
+
 	metrics := New()
 
 	group := metrics.Group("foo.")
@@ -242,6 +208,8 @@ func TestMetricsRegisterGroup(t *testing.T) {
 }
 
 func TestMetricsGetJSON(t *testing.T) {
+	t.Parallel()
+
 	metrics := New()
 
 	counter1 := new(DefaultCounter)
@@ -262,6 +230,8 @@ func TestMetricsGetJSON(t *testing.T) {
 }
 
 func TestMetricsDefaultGetJSON(t *testing.T) {
+	t.Parallel()
+
 	counter1 := new(DefaultCounter)
 	counter1.Set(10)
 	require.Nil(t, Register("counter1", counter1))
@@ -280,6 +250,8 @@ func TestMetricsDefaultGetJSON(t *testing.T) {
 }
 
 func TestMetricsGetJSONGlobPatterns(t *testing.T) {
+	t.Parallel()
+
 	metrics := New()
 	tests := [...]struct {
 		pattern  string
@@ -336,4 +308,77 @@ func TestMetricsGetJSONGlobPatterns(t *testing.T) {
 	b, err := metrics.GetJSON("[*")
 	assert.Nil(t, b)
 	assert.NotNil(t, err)
+}
+
+func checkFileWriter(t *testing.T, fileName, lineSep string, counters map[string]int64) {
+	ch := time.After(time.Minute)
+	var updateNum int
+
+	check := func() bool {
+		data, err := ioutil.ReadFile(fileName)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				require.FailNow(t, err.Error())
+			}
+			return false
+		}
+
+		metrics := strings.TrimSuffix(string(data), lineSep)
+		metricsData := strings.Split(metrics, lineSep)
+
+		for _, metricLine := range metricsData {
+			if metricLine != "" {
+				updateNum++
+
+				metricLine = strings.Replace(metricLine, " ", "", -1)
+				counter := strings.Split(metricLine, "=")
+				require.Len(t, counter, 2)
+
+				key := counter[0]
+				actualVal, err := strconv.ParseInt(counter[1], 10, 64)
+				require.Nil(t, err)
+
+				expectedVal, ok := counters[key]
+				require.True(t, ok)
+				require.Equal(t, expectedVal, actualVal)
+
+				if updateNum == len(counters) {
+					return true
+				}
+			}
+		}
+
+		return false
+	}
+
+	for {
+		select {
+		case <-ch:
+			require.FailNow(t, "counters wasn't updated")
+			return
+		default:
+			if check() {
+				return
+			}
+			time.Sleep(time.Millisecond * 100)
+		}
+	}
+
+}
+
+func newTempFile(t *testing.T) *os.File {
+	file, err := ioutil.TempFile("", t.Name())
+	require.Nil(t, err)
+	return file
+}
+
+func removeTempFile(t *testing.T, f *os.File) {
+	require.Nil(t, f.Close())
+	require.Nil(t, os.Remove(f.Name()))
+}
+
+type mockErrorHandler struct{}
+
+func (e *mockErrorHandler) Handle(err error) {
+	fmt.Fprintf(os.Stderr, "failed to write metrics file, %v\n", err)
 }

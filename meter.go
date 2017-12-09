@@ -227,11 +227,7 @@ func createAndWriteFile(m *Metrics, path string) error {
 
 	// rename temporary file to existing.
 	// it's necessary for atomic file rewriting.
-	if err = file.Commit(); err != nil {
-		return err
-	}
-
-	return nil
+	return file.Commit()
 }
 
 func write(m *Metrics) error {
