@@ -29,34 +29,13 @@ func NewFormatter(lineSeparator string) Formatter {
 	return df
 }
 
-type sortedMap struct {
-	m map[string]Counter
-	s []string
-}
-
-func (sm *sortedMap) Len() int {
-	return len(sm.m)
-}
-
-func (sm *sortedMap) Less(i, j int) bool {
-	return sm.m[sm.s[i]].Get() < sm.m[sm.s[j]].Get()
-}
-
-func (sm *sortedMap) Swap(i, j int) {
-	sm.s[i], sm.s[j] = sm.s[j], sm.s[i]
-}
-
 func sortedKeys(m map[string]Counter) []string {
-	sm := new(sortedMap)
-	sm.m = m
-	sm.s = make([]string, len(m))
-	i := 0
+	s := make([]string, 0, len(m))
 	for key := range m {
-		sm.s[i] = key
-		i++
+		s = append(s, key)
 	}
-	sort.Sort(sm)
-	return sm.s
+	sort.Strings(s)
+	return s
 }
 
 type defaultFormatter struct {
