@@ -220,13 +220,29 @@ func TestMetricsGetJSON(t *testing.T) {
 	counter2.Set(42)
 	require.Nil(t, metrics.Register("counter2", counter2))
 
-	b, err := metrics.GetJSON("count*")
+	b, err := metrics.GetJSON(func(key string) bool {
+		if key == "counter1" || key == "counter2" {
+			return true
+		}
+		return false
+	})
 	require.Nil(t, err)
 	assert.JSONEq(t, `{"counter1": 10, "counter2": 42}`, string(b))
 
-	b, err = metrics.GetJSON("*2")
+	b, err = metrics.GetJSON(func(key string) bool {
+		if key == "counter2" {
+			return true
+		}
+		return false
+	})
 	assert.Nil(t, err)
 	assert.JSONEq(t, `{"counter2": 42}`, string(b))
+
+	b, err = metrics.GetJSON(func(string) bool {
+		return false
+	})
+	assert.Nil(t, err)
+	assert.JSONEq(t, `{}`, string(b))
 }
 
 func TestMetricsDefaultGetJSON(t *testing.T) {
@@ -240,74 +256,29 @@ func TestMetricsDefaultGetJSON(t *testing.T) {
 	counter2.Set(42)
 	require.Nil(t, Register("counter2", counter2))
 
-	b, err := GetJSON("count*")
+	b, err := GetJSON(func(key string) bool {
+		if key == "counter1" || key == "counter2" {
+			return true
+		}
+		return false
+	})
 	require.Nil(t, err)
 	assert.JSONEq(t, `{"counter1": 10, "counter2": 42}`, string(b))
 
-	b, err = GetJSON("*2")
+	b, err = GetJSON(func(key string) bool {
+		if key == "counter2" {
+			return true
+		}
+		return false
+	})
 	assert.Nil(t, err)
 	assert.JSONEq(t, `{"counter2": 42}`, string(b))
-}
 
-func TestMetricsGetJSONGlobPatterns(t *testing.T) {
-	t.Parallel()
-
-	metrics := New()
-	tests := [...]struct {
-		pattern  string
-		expected string
-	}{
-		{
-			pattern:  "*",
-			expected: `{"abc": 10, "abb": 42, "adc": 33, "aaac":17}`,
-		},
-		{
-			pattern:  "a*",
-			expected: `{"abc": 10, "abb": 42, "adc": 33, "aaac":17}`,
-		},
-		{
-			pattern:  "a?c",
-			expected: `{"abc": 10, "adc": 33}`,
-		},
-		{
-			pattern:  "a*c",
-			expected: `{"abc": 10, "adc": 33, "aaac":17}`,
-		},
-		{
-			pattern:  "*b*",
-			expected: `{"abc": 10, "abb": 42}`,
-		},
-		{
-			pattern:  "??[ab]*",
-			expected: `{"abb": 42, "aaac":17}`,
-		},
-	}
-
-	counter1 := new(DefaultCounter)
-	counter1.Set(10)
-	require.Nil(t, metrics.Register("abc", counter1))
-
-	counter2 := new(DefaultCounter)
-	counter2.Set(42)
-	require.Nil(t, metrics.Register("abb", counter2))
-
-	counter3 := new(DefaultCounter)
-	counter3.Set(33)
-	require.Nil(t, metrics.Register("adc", counter3))
-
-	counter4 := new(DefaultCounter)
-	counter4.Set(17)
-	require.Nil(t, metrics.Register("aaac", counter4))
-
-	for _, tCase := range tests {
-		b, err := metrics.GetJSON(tCase.pattern)
-		require.Nil(t, err)
-		assert.JSONEq(t, tCase.expected, string(b))
-	}
-
-	b, err := metrics.GetJSON("[*")
-	assert.Nil(t, b)
-	assert.NotNil(t, err)
+	b, err = GetJSON(func(key string) bool {
+		return false
+	})
+	assert.Nil(t, err)
+	assert.JSONEq(t, `{}`, string(b))
 }
 
 func checkFileWriter(t *testing.T, fileName, lineSep string, counters map[string]int64) {
