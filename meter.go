@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/dchest/safefile"
-	"github.com/gobwas/glob"
 )
 
 // Metrics is a collection of metrics.
@@ -106,33 +105,25 @@ func getCounter(m *Metrics, counterName string) Counter {
 	return c
 }
 
-// GetJSON filters counters by glob pattern and returns them as a json marshaled
-// map.
-func (m *Metrics) GetJSON(pattern string) ([]byte, error) {
-	return getJSON(m, pattern)
+// GetJSON filters counters by given predicate and returns them as a json
+// marshaled map.
+func (m *Metrics) GetJSON(predicate func(string) bool) ([]byte, error) {
+	return getJSON(m, predicate)
 }
 
-func getJSON(m *Metrics, pattern string) ([]byte, error) {
-	g, err := glob.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make(map[string]int64)
+func getJSON(m *Metrics, predicate func(string) bool) ([]byte, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	result := make(map[string]Counter)
+	formatter := jsonFormatter{}
 	for k, v := range m.counters {
-		if g.Match(k) {
+		if predicate(k) {
 			result[k] = v.Get()
 		}
 	}
 
-	b, err := json.Marshal(result)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
+	return json.Marshal(result)
 }
 
 // SetErrorHandler sets error handler for errors that can happen during writing metrics
@@ -268,10 +259,10 @@ func Get(counterName string) Counter {
 	return getCounter(Default, counterName)
 }
 
-// GetJSON filters counters by glob pattern and returns them as a json marshaled
-// map.
-func GetJSON(pattern string) ([]byte, error) {
-	return getJSON(Default, pattern)
+// GetJSON filters counters by given predicate and returns them as a json
+// marshaled map.
+func GetJSON(predicate func(string) bool) ([]byte, error) {
+	return getJSON(Default, predicate)
 }
 
 // SetErrorHandler sets error handler for errors that can happen during writing metrics
