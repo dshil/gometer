@@ -54,11 +54,7 @@ func ExampleMetricsGetJSONGlobPatterns() {
 		},
 	} {
 		g := glob.MustCompile(tCase.pattern)
-		b, err := metrics.GetJSON(g.Match)
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
+		b := metrics.GetJSON(g.Match)
 		fmt.Println(string(b))
 	}
 	// Output:
