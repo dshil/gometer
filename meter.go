@@ -1,7 +1,6 @@
 package gometer
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -107,11 +106,11 @@ func getCounter(m *Metrics, counterName string) Counter {
 
 // GetJSON filters counters by given predicate and returns them as a json
 // marshaled map.
-func (m *Metrics) GetJSON(predicate func(string) bool) ([]byte, error) {
+func (m *Metrics) GetJSON(predicate func(string) bool) []byte {
 	return getJSON(m, predicate)
 }
 
-func getJSON(m *Metrics, predicate func(string) bool) ([]byte, error) {
+func getJSON(m *Metrics, predicate func(string) bool) []byte {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -119,11 +118,11 @@ func getJSON(m *Metrics, predicate func(string) bool) ([]byte, error) {
 	formatter := jsonFormatter{}
 	for k, v := range m.counters {
 		if predicate(k) {
-			result[k] = v.Get()
+			result[k] = v
 		}
 	}
 
-	return json.Marshal(result)
+	return formatter.Format(result)
 }
 
 // SetErrorHandler sets error handler for errors that can happen during writing metrics
@@ -261,7 +260,7 @@ func Get(counterName string) Counter {
 
 // GetJSON filters counters by given predicate and returns them as a json
 // marshaled map.
-func GetJSON(predicate func(string) bool) ([]byte, error) {
+func GetJSON(predicate func(string) bool) []byte {
 	return getJSON(Default, predicate)
 }
 

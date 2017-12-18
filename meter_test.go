@@ -220,28 +220,25 @@ func TestMetricsGetJSON(t *testing.T) {
 	counter2.Set(42)
 	require.Nil(t, metrics.Register("counter2", counter2))
 
-	b, err := metrics.GetJSON(func(key string) bool {
+	b := metrics.GetJSON(func(key string) bool {
 		if key == "counter1" || key == "counter2" {
 			return true
 		}
 		return false
 	})
-	require.Nil(t, err)
 	assert.JSONEq(t, `{"counter1": 10, "counter2": 42}`, string(b))
 
-	b, err = metrics.GetJSON(func(key string) bool {
+	b = metrics.GetJSON(func(key string) bool {
 		if key == "counter2" {
 			return true
 		}
 		return false
 	})
-	assert.Nil(t, err)
 	assert.JSONEq(t, `{"counter2": 42}`, string(b))
 
-	b, err = metrics.GetJSON(func(string) bool {
+	b = metrics.GetJSON(func(string) bool {
 		return false
 	})
-	assert.Nil(t, err)
 	assert.JSONEq(t, `{}`, string(b))
 }
 
@@ -256,28 +253,25 @@ func TestMetricsDefaultGetJSON(t *testing.T) {
 	counter2.Set(42)
 	require.Nil(t, Register("counter2", counter2))
 
-	b, err := GetJSON(func(key string) bool {
+	b := GetJSON(func(key string) bool {
 		if key == "counter1" || key == "counter2" {
 			return true
 		}
 		return false
 	})
-	require.Nil(t, err)
 	assert.JSONEq(t, `{"counter1": 10, "counter2": 42}`, string(b))
 
-	b, err = GetJSON(func(key string) bool {
+	b = GetJSON(func(key string) bool {
 		if key == "counter2" {
 			return true
 		}
 		return false
 	})
-	assert.Nil(t, err)
 	assert.JSONEq(t, `{"counter2": 42}`, string(b))
 
-	b, err = GetJSON(func(key string) bool {
+	b = GetJSON(func(key string) bool {
 		return false
 	})
-	assert.Nil(t, err)
 	assert.JSONEq(t, `{}`, string(b))
 }
 
