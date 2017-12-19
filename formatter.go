@@ -45,34 +45,12 @@ type defaultFormatter struct {
 func (f *defaultFormatter) Format(counters map[string]Counter) []byte {
 	var buf bytes.Buffer
 
-	for _, n := range sortedKeys(counters) {
-		line := fmt.Sprintf("%v = %v", n, counters[n].Get()) + f.lineSeparator
-		fmt.Fprintf(&buf, line)
+	for _, k := range sortedKeys(counters) {
+		line := fmt.Sprintf("%v = %v", k, counters[k].Get()) + f.lineSeparator
+		buf.WriteString(line)
 	}
 
 	return buf.Bytes()
 }
 
 var _ Formatter = (*defaultFormatter)(nil)
-
-type jsonFormatter struct {
-}
-
-func (f *jsonFormatter) Format(counters map[string]Counter) []byte {
-	var buf bytes.Buffer
-
-	buf.WriteRune('{')
-	first := true
-	for _, k := range sortedKeys(counters) {
-		if first {
-			first = false
-		} else {
-			buf.WriteRune(',')
-		}
-		fmt.Fprintf(&buf, `"%s":%v`, k, counters[k].Get())
-	}
-	buf.WriteRune('}')
-	return buf.Bytes()
-}
-
-var _ Formatter = (*jsonFormatter)(nil)
