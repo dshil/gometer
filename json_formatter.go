@@ -11,17 +11,21 @@ type jsonFormatter struct {
 func (f *jsonFormatter) Format(counters map[string]Counter) []byte {
 	var buf bytes.Buffer
 
-	buf.WriteRune('{')
+	_, err := buf.WriteRune('{')
+	panicIfErr(err)
 	first := true
 	for _, k := range sortedKeys(counters) {
 		if first {
 			first = false
 		} else {
-			buf.WriteRune(',')
+			_, err := buf.WriteRune(',')
+			panicIfErr(err)
 		}
-		fmt.Fprintf(&buf, `"%s":%v`, k, counters[k].Get())
+		_, err := fmt.Fprintf(&buf, `"%s":%v`, k, counters[k].Get())
+		panicIfErr(err)
 	}
-	buf.WriteRune('}')
+	_, err = buf.WriteRune('}')
+	panicIfErr(err)
 	return buf.Bytes()
 }
 
