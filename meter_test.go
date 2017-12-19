@@ -1,6 +1,7 @@
 package gometer
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -273,6 +274,11 @@ func TestMetricsDefaultGetJSON(t *testing.T) {
 		return false
 	})
 	assert.JSONEq(t, `{}`, string(b))
+}
+
+func TestPanicIfErr(t *testing.T) {
+	assert.NotPanics(t, func() { panicIfErr(nil) })
+	assert.Panics(t, func() { panicIfErr(errors.New("some_error")) })
 }
 
 func checkFileWriter(t *testing.T, fileName, lineSep string, counters map[string]int64) {

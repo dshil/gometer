@@ -38,6 +38,12 @@ func sortedKeys(m map[string]Counter) []string {
 	return s
 }
 
+func panicIfErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 type defaultFormatter struct {
 	lineSeparator string
 }
@@ -47,7 +53,8 @@ func (f *defaultFormatter) Format(counters map[string]Counter) []byte {
 
 	for _, k := range sortedKeys(counters) {
 		line := fmt.Sprintf("%v = %v", k, counters[k].Get()) + f.lineSeparator
-		buf.WriteString(line)
+		_, err := buf.WriteString(line)
+		panicIfErr(err)
 	}
 
 	return buf.Bytes()
