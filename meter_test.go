@@ -275,6 +275,23 @@ func TestMetricsDefaultGetJSON(t *testing.T) {
 	assert.JSONEq(t, `{}`, string(b))
 }
 
+type mockPanicHandler struct{}
+
+func (h *mockPanicHandler) Handle(err error) {
+	fmt.Fprintf(os.Stderr, "failed to write metrics file, %v\n", err)
+}
+
+func newTempFile(t *testing.T) *os.File {
+	file, err := ioutil.TempFile("", t.Name())
+	require.Nil(t, err)
+	return file
+}
+
+func removeTempFile(t *testing.T, f *os.File) {
+	require.Nil(t, f.Close())
+	require.Nil(t, os.Remove(f.Name()))
+}
+
 func checkFileWriter(t *testing.T, fileName, lineSep string, counters map[string]int64) {
 	ch := time.After(time.Minute)
 	var updateNum int
@@ -329,21 +346,4 @@ func checkFileWriter(t *testing.T, fileName, lineSep string, counters map[string
 		}
 	}
 
-}
-
-func newTempFile(t *testing.T) *os.File {
-	file, err := ioutil.TempFile("", t.Name())
-	require.Nil(t, err)
-	return file
-}
-
-func removeTempFile(t *testing.T, f *os.File) {
-	require.Nil(t, f.Close())
-	require.Nil(t, os.Remove(f.Name()))
-}
-
-type mockPanicHandler struct{}
-
-func (h *mockPanicHandler) Handle(err error) {
-	fmt.Fprintf(os.Stderr, "failed to write metrics file, %v\n", err)
 }

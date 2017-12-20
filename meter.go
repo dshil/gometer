@@ -20,6 +20,15 @@ type Metrics struct {
 	stopCh       chan struct{}
 }
 
+// FileWriterParams represents a params for asynchronous file writing operation.
+//
+// FilePath represents a file path.
+// UpdateInterval determines how often metrics data will be written to a file.
+type FileWriterParams struct {
+	FilePath       string
+	UpdateInterval time.Duration
+}
+
 // Default is a standard metrics object.
 var Default = New()
 
@@ -81,59 +90,15 @@ func (m *Metrics) RegisterGroup(group *CountersGroup) error {
 	return registerGroup(m, group)
 }
 
-func registerGroup(metrics *Metrics, group *CountersGroup) error {
-	counters := group.Counters()
-
-	for name, counter := range counters {
-		if err := registerCounter(metrics, name, counter); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Get returns counter by name or nil if counter doesn't exist.
 func (m *Metrics) Get(counterName string) Counter {
 	return getCounter(m, counterName)
-}
-
-func getCounter(m *Metrics, counterName string) Counter {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	c := m.counters[counterName]
-	return c
 }
 
 // GetJSON filters counters by given predicate and returns them as a json
 // marshaled map.
 func (m *Metrics) GetJSON(predicate func(string) bool) []byte {
 	return getJSON(m, predicate)
-}
-
-func getJSON(m *Metrics, predicate func(string) bool) []byte {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	result := make(map[string]Counter)
-	formatter := jsonFormatter{}
-	for k, v := range m.counters {
-		if predicate(k) {
-			result[k] = v
-		}
-	}
-
-	data, err := formatter.Format(result)
-	if err == nil {
-		return data
-	}
-
-	if m.panicHandler != nil {
-		m.panicHandler.Handle(err)
-	} else {
-		panic(err)
-	}
-
-	return nil
 }
 
 // SetPanicHandler sets error handler for errors that causing the panic.
@@ -157,46 +122,16 @@ func (m *Metrics) Group(format string, v ...interface{}) *CountersGroup {
 // Write writes all existing metrics to output destination.
 //
 // Writing metrics to the file using this method will not recreate a file.
-// it appends existing metrics to existing file's data.
+// It appends existing metrics to existing file's data.
 // if you want to write metrics to clear file use WriteToFile() method.
 func (m *Metrics) Write() error {
 	return write(m)
-}
-
-// FileWriterParams represents a params for asynchronous file writing operation.
-//
-// FilePath represents a file path.
-// UpdateInterval determines how often metrics data will be written to a file.
-type FileWriterParams struct {
-	FilePath       string
-	UpdateInterval time.Duration
 }
 
 // StartFileWriter starts a goroutine that will periodically writes metrics to a file.
 func (m *Metrics) StartFileWriter(p FileWriterParams) {
 	m.stopCh = make(chan struct{})
 	go startFileWriter(m, p)
-}
-
-func startFileWriter(m *Metrics, p FileWriterParams) {
-	ticker := time.NewTicker(p.UpdateInterval)
-	defer ticker.Stop()
-	defer close(m.stopCh)
-
-	for {
-		select {
-		case <-ticker.C:
-			if err := createAndWriteFile(m, p.FilePath); err != nil {
-				if h := m.getPanicHandler(); h != nil {
-					h.Handle(err)
-					return
-				}
-				panic(err)
-			}
-		case <-m.stopCh:
-			return
-		}
-	}
 }
 
 // StopFileWriter stops a goroutine that will periodically writes metrics to a file.
@@ -208,48 +143,6 @@ func (m *Metrics) getPanicHandler() PanicHandler {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.panicHandler
-}
-
-func stopFileWriter(m *Metrics) {
-	if m.stopCh != nil {
-		m.stopCh <- struct{}{}
-		<-m.stopCh
-		m.stopCh = nil
-	}
-}
-
-func createAndWriteFile(m *Metrics, path string) error {
-	// create an empty temporary file.
-	file, err := safefile.Create(path, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	m.SetOutput(file)
-	if err = write(m); err != nil {
-		return err
-	}
-
-	// rename temporary file to existing.
-	// it's necessary for atomic file rewriting.
-	return file.Commit()
-}
-
-func write(m *Metrics) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	data, err := m.formatter.Format(m.counters)
-	if err != nil {
-		return err
-	}
-
-	if _, err := m.out.Write(data); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // These functions are used for standard metrics.
@@ -325,4 +218,111 @@ func Group(format string, v ...interface{}) *CountersGroup {
 // returns an error if a counter with such name exists.
 func RegisterGroup(group *CountersGroup) error {
 	return registerGroup(Default, group)
+}
+
+func registerGroup(metrics *Metrics, group *CountersGroup) error {
+	counters := group.Counters()
+
+	for name, counter := range counters {
+		if err := registerCounter(metrics, name, counter); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getCounter(m *Metrics, counterName string) Counter {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	c := m.counters[counterName]
+	return c
+}
+
+func getJSON(m *Metrics, predicate func(string) bool) []byte {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	result := make(map[string]Counter)
+	formatter := jsonFormatter{}
+	for k, v := range m.counters {
+		if predicate(k) {
+			result[k] = v
+		}
+	}
+
+	data, err := formatter.Format(result)
+	if err == nil {
+		return data
+	}
+
+	if m.panicHandler != nil {
+		m.panicHandler.Handle(err)
+	} else {
+		panic(err)
+	}
+
+	return nil
+}
+
+func startFileWriter(m *Metrics, p FileWriterParams) {
+	ticker := time.NewTicker(p.UpdateInterval)
+	defer ticker.Stop()
+	defer close(m.stopCh)
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := createAndWriteFile(m, p.FilePath); err != nil {
+				if h := m.getPanicHandler(); h != nil {
+					h.Handle(err)
+					return
+				}
+				panic(err)
+			}
+		case <-m.stopCh:
+			return
+		}
+	}
+}
+
+func stopFileWriter(m *Metrics) {
+	if m.stopCh != nil {
+		m.stopCh <- struct{}{}
+		<-m.stopCh
+		m.stopCh = nil
+	}
+}
+
+func createAndWriteFile(m *Metrics, path string) error {
+	// create an empty temporary file.
+	file, err := safefile.Create(path, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	m.SetOutput(file)
+	if err = write(m); err != nil {
+		return err
+	}
+
+	// rename temporary file to existing.
+	// it's necessary for atomic file rewriting.
+	return file.Commit()
+}
+
+func write(m *Metrics) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	data, err := m.formatter.Format(m.counters)
+	if err != nil {
+		return err
+	}
+
+	if _, err := m.out.Write(data); err != nil {
+		return err
+	}
+
+	return nil
 }
