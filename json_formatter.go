@@ -8,25 +8,33 @@ import (
 type jsonFormatter struct {
 }
 
-func (f *jsonFormatter) Format(counters map[string]Counter) []byte {
+func (f *jsonFormatter) Format(counters map[string]Counter) ([]byte, error) {
 	var buf bytes.Buffer
 
 	_, err := buf.WriteRune('{')
-	panicIfErr(err)
+	if err != nil {
+		return nil, err
+	}
+
 	first := true
 	for _, k := range sortedKeys(counters) {
 		if first {
 			first = false
 		} else {
-			_, err := buf.WriteRune(',')
-			panicIfErr(err)
+			if _, err := buf.WriteRune(','); err != nil {
+				return nil, err
+			}
 		}
-		_, err := fmt.Fprintf(&buf, `"%s":%v`, k, counters[k].Get())
-		panicIfErr(err)
+		if _, err := fmt.Fprintf(&buf, `"%s":%d`, k, counters[k].Get()); err != nil {
+			return nil, err
+		}
 	}
-	_, err = buf.WriteRune('}')
-	panicIfErr(err)
-	return buf.Bytes()
+
+	if _, err := buf.WriteRune('}'); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 var _ Formatter = (*jsonFormatter)(nil)

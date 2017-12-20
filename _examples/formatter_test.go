@@ -4,20 +4,23 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"sort"
 
 	"github.com/dshil/gometer"
 )
 
 type simpleFormatter struct{}
 
-func (f *simpleFormatter) Format(counters map[string]gometer.Counter) []byte {
+func (f *simpleFormatter) Format(counters map[string]gometer.Counter) ([]byte, error) {
 	var buf bytes.Buffer
+
 	for name, counter := range counters {
-		line := fmt.Sprintf("%v, %v", name, counter.Get()) + "\n"
-		fmt.Fprint(&buf, line)
+		_, err := fmt.Fprintf(&buf, "%s:%d%s", name, counter.Get(), "\n")
+		if err != nil {
+			return nil, err
+		}
 	}
-	return buf.Bytes()
+
+	return buf.Bytes(), nil
 }
 
 var _ gometer.Formatter = (*simpleFormatter)(nil)
@@ -29,72 +32,40 @@ func ExampleSimpleFormatter() {
 
 	c := gometer.DefaultCounter{}
 	c.Add(100)
-	if err := metrics.Register("http_requests_total", &c); err != nil {
-		fmt.Println(err.Error())
+	if err := metrics.Register("foo", &c); err != nil {
+		fmt.Println(err)
 		return
 	}
 
 	if err := metrics.Write(); err != nil {
-		fmt.Println(err.Error())
+		fmt.Println(err)
 		return
 	}
-	// Output: http_requests_total, 100
+
+	// Output:
+	// foo:100
 }
 
-type sortByNameFormatter struct{}
-
-func (f *sortByNameFormatter) Format(counters map[string]gometer.Counter) []byte {
-	var buf bytes.Buffer
-
-	var names []string
-	for name := range counters {
-		names = append(names, name)
-	}
-
-	sort.Strings(names)
-
-	for _, n := range names {
-		line := fmt.Sprintf("%v: %v", n, counters[n].Get()) + "\n"
-		fmt.Fprintf(&buf, line)
-	}
-
-	return buf.Bytes()
-}
-
-var _ gometer.Formatter = (*sortByNameFormatter)(nil)
-
-func ExampleSortByNameFormatter() {
+func ExampleDefaultFormatter() {
 	metrics := gometer.New()
 	metrics.SetOutput(os.Stdout)
-	metrics.SetFormatter(new(sortByNameFormatter))
 
-	adder := gometer.DefaultCounter{}
-	adder.Add(10)
-	if err := metrics.Register("adder", &adder); err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	setter := gometer.DefaultCounter{}
-	setter.Set(-1)
-	if err := metrics.Register("setter", &setter); err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	inc := gometer.DefaultCounter{}
-	inc.Add(1)
-	if err := metrics.Register("inc", &inc); err != nil {
-		fmt.Println(err.Error())
-		return
+	for _, name := range []string{"foo", "bar", "baz"} {
+		c := gometer.DefaultCounter{}
+		c.Add(100)
+		if err := metrics.Register(name, &c); err != nil {
+			fmt.Println(err)
+			return
+		}
 	}
 
 	if err := metrics.Write(); err != nil {
-		fmt.Println(err.Error())
+		fmt.Println(err)
 		return
 	}
+
 	// Output:
-	// adder: 10
-	// inc: 1
-	// setter: -1
+	// bar = 100
+	// baz = 100
+	// foo = 100
 }

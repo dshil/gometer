@@ -6,11 +6,9 @@ import (
 	"sort"
 )
 
-// Formatter is used to determine a format of metrics representation.
+// Formatter determines a format of metrics representation.
 type Formatter interface {
-	// Format is defined how metrics will be dumped
-	// to output destination.
-	Format(counters map[string]Counter) []byte
+	Format(counters map[string]Counter) ([]byte, error)
 }
 
 // NewFormatter returns new default formatter.
@@ -20,14 +18,31 @@ type Formatter interface {
 //
 // As line separator can be used any symbol: e.g. '\n', ':', '.', ','.
 //
-// Default format for one line of metrics is: "%v = %v".
-// defaultFormatter sorts metrics by value.
+// Default format for one line of metrics is: "%v = %v". Metrics will be sorted by key.
 func NewFormatter(lineSeparator string) Formatter {
-	df := &defaultFormatter{
+	return &defaultFormatter{
 		lineSeparator: lineSeparator,
 	}
-	return df
 }
+
+type defaultFormatter struct {
+	lineSeparator string
+}
+
+func (f *defaultFormatter) Format(counters map[string]Counter) ([]byte, error) {
+	var buf bytes.Buffer
+
+	for _, k := range sortedKeys(counters) {
+		_, err := fmt.Fprintf(&buf, "%s = %d%s", k, counters[k].Get(), f.lineSeparator)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return buf.Bytes(), nil
+}
+
+var _ Formatter = (*defaultFormatter)(nil)
 
 func sortedKeys(m map[string]Counter) []string {
 	s := make([]string, 0, len(m))
@@ -37,27 +52,3 @@ func sortedKeys(m map[string]Counter) []string {
 	sort.Strings(s)
 	return s
 }
-
-func panicIfErr(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-type defaultFormatter struct {
-	lineSeparator string
-}
-
-func (f *defaultFormatter) Format(counters map[string]Counter) []byte {
-	var buf bytes.Buffer
-
-	for _, k := range sortedKeys(counters) {
-		line := fmt.Sprintf("%v = %v", k, counters[k].Get()) + f.lineSeparator
-		_, err := buf.WriteString(line)
-		panicIfErr(err)
-	}
-
-	return buf.Bytes()
-}
-
-var _ Formatter = (*defaultFormatter)(nil)
