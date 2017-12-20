@@ -133,7 +133,11 @@ func TestMetricsDefault(t *testing.T) {
 
 	counter := Get("default_metrics_counter")
 	require.NotNil(t, counter)
-	assert.Equal(t, int64(10), counter.Get())
+	require.Equal(t, int64(10), counter.Get())
+
+	prefixMetrics := WithPrefix("prefix.%s.", "errors")
+	c2 := prefixMetrics.Get("data")
+	assert.True(t, c2 == Get("prefix.errors.data"))
 }
 
 func TestMetricsSetPanicHandler(t *testing.T) {

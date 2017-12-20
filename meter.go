@@ -18,6 +18,7 @@ type Metrics interface {
 	Register(string, *Counter) error
 	Get(string) *Counter
 	GetJSON(func(string) bool) []byte
+	WithPrefix(string, ...interface{}) *PrefixMetrics
 	SetPanicHandler(PanicHandler)
 	Write() error
 	StartFileWriter(FileWriterParams)
@@ -189,6 +190,14 @@ func (m *DefaultMetrics) StopFileWriter() {
 	m.wg.Wait()
 }
 
+// WithPrefix creates new PrefixMetrics that uses original Metrics with specified prefix.
+func (m *DefaultMetrics) WithPrefix(prefix string, v ...interface{}) *PrefixMetrics {
+	return &PrefixMetrics{
+		Metrics: m,
+		prefix:  fmt.Sprintf(prefix, v...),
+	}
+}
+
 func (m *DefaultMetrics) getPanicHandler() PanicHandler {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -251,6 +260,12 @@ func StartFileWriter(p FileWriterParams) {
 // StopFileWriter stops a goroutine that will periodically writes metrics to a file.
 func StopFileWriter() {
 	Default.StopFileWriter()
+}
+
+// WithPrefix creates new PrefixMetrics that uses original Metrics with specified prefix.
+// For more details see DefaultMetrics.WithPrefix().
+func WithPrefix(prefix string, v ...interface{}) *PrefixMetrics {
+	return Default.WithPrefix(prefix, v...)
 }
 
 func (m *DefaultMetrics) createAndWriteFile(path string) error {
