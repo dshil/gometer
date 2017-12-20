@@ -118,8 +118,8 @@ func TestMetricsDefault(t *testing.T) {
 	require.Nil(t, Write())
 	removeTempFile(t, file)
 
-	SetErrorHandler(new(mockErrorHandler))
-	assert.NotNil(t, Default.errHandler)
+	SetPanicHandler(new(mockPanicHandler))
+	assert.NotNil(t, Default.panicHandler)
 
 	file = newTempFile(t)
 	defer removeTempFile(t, file)
@@ -140,12 +140,12 @@ func TestMetricsDefault(t *testing.T) {
 	assert.Nil(t, RegisterGroup(group))
 }
 
-func TestMetricsSetErrorHandler(t *testing.T) {
+func TestMetricsSetPanicHandler(t *testing.T) {
 	t.Parallel()
 
 	metrics := New()
-	metrics.SetErrorHandler(new(mockErrorHandler))
-	assert.NotNil(t, metrics.errHandler)
+	metrics.SetPanicHandler(new(mockPanicHandler))
+	assert.NotNil(t, metrics.panicHandler)
 }
 
 func TestMetricsExistingCounter(t *testing.T) {
@@ -342,8 +342,8 @@ func removeTempFile(t *testing.T, f *os.File) {
 	require.Nil(t, os.Remove(f.Name()))
 }
 
-type mockErrorHandler struct{}
+type mockPanicHandler struct{}
 
-func (e *mockErrorHandler) Handle(err error) {
+func (h *mockPanicHandler) Handle(err error) {
 	fmt.Fprintf(os.Stderr, "failed to write metrics file, %v\n", err)
 }

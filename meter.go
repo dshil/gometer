@@ -12,12 +12,12 @@ import (
 
 // Metrics is a collection of metrics.
 type Metrics struct {
-	mu         sync.Mutex
-	out        io.Writer
-	counters   map[string]Counter
-	formatter  Formatter
-	errHandler ErrorHandler
-	stopCh     chan struct{}
+	mu           sync.Mutex
+	out          io.Writer
+	counters     map[string]Counter
+	formatter    Formatter
+	panicHandler PanicHandler
+	stopCh       chan struct{}
 }
 
 // Default is a standard metrics object.
@@ -127,8 +127,8 @@ func getJSON(m *Metrics, predicate func(string) bool) []byte {
 		return data
 	}
 
-	if m.errHandler != nil {
-		m.errHandler.Handle(err)
+	if m.panicHandler != nil {
+		m.panicHandler.Handle(err)
 	} else {
 		panic(err)
 	}
@@ -136,12 +136,11 @@ func getJSON(m *Metrics, predicate func(string) bool) []byte {
 	return nil
 }
 
-// SetErrorHandler sets error handler for errors that can happen during writing metrics
-// to a file asynchronously.
-func (m *Metrics) SetErrorHandler(e ErrorHandler) {
+// SetPanicHandler sets error handler for errors that causing the panic.
+func (m *Metrics) SetPanicHandler(handler PanicHandler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.errHandler = e
+	m.panicHandler = handler
 }
 
 // Group returns a new counters group.
@@ -188,8 +187,8 @@ func startFileWriter(m *Metrics, p FileWriterParams) {
 		select {
 		case <-ticker.C:
 			if err := createAndWriteFile(m, p.FilePath); err != nil {
-				if m.errHandler != nil {
-					m.errHandler.Handle(err)
+				if h := m.getPanicHandler(); h != nil {
+					h.Handle(err)
 					return
 				}
 				panic(err)
@@ -203,6 +202,12 @@ func startFileWriter(m *Metrics, p FileWriterParams) {
 // StopFileWriter stops a goroutine that will periodically writes metrics to a file.
 func (m *Metrics) StopFileWriter() {
 	stopFileWriter(m)
+}
+
+func (m *Metrics) getPanicHandler() PanicHandler {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.panicHandler
 }
 
 func stopFileWriter(m *Metrics) {
@@ -281,12 +286,11 @@ func GetJSON(predicate func(string) bool) []byte {
 	return getJSON(Default, predicate)
 }
 
-// SetErrorHandler sets error handler for errors that can happen during writing metrics
-// to a file asynchronously.
-func SetErrorHandler(e ErrorHandler) {
+// SetPanicHandler sets error handler for errors that causing the panic.
+func SetPanicHandler(handler PanicHandler) {
 	Default.mu.Lock()
 	defer Default.mu.Unlock()
-	Default.errHandler = e
+	Default.panicHandler = handler
 }
 
 // Write all existing metrics to an output destination.
