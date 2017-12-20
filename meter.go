@@ -11,7 +11,21 @@ import (
 )
 
 // Metrics is a collection of metrics.
-type Metrics struct {
+type Metrics interface {
+	SetOutput(io.Writer)
+	SetFormatter(Formatter)
+	Formatter() Formatter
+	Register(string, *Counter) error
+	Get(string) *Counter
+	GetJSON(func(string) bool) []byte
+	SetPanicHandler(PanicHandler)
+	Write() error
+	StartFileWriter(FileWriterParams)
+	StopFileWriter()
+}
+
+// DefaultMetrics is a default implementation of Metrics.
+type DefaultMetrics struct {
 	wg       sync.WaitGroup
 	stopOnce sync.Once
 	cancelCh chan struct{}
@@ -22,6 +36,8 @@ type Metrics struct {
 	formatter    Formatter
 	panicHandler PanicHandler
 }
+
+var _ Metrics = (*DefaultMetrics)(nil)
 
 // FileWriterParams represents a params for asynchronous file writing operation.
 //
@@ -36,11 +52,8 @@ type FileWriterParams struct {
 var Default = New()
 
 // New creates new empty collection of metrics.
-//
-// out defines where to write metrics.
-// formatter determines how metric's values will be formatted.
-func New() *Metrics {
-	m := &Metrics{
+func New() *DefaultMetrics {
+	m := &DefaultMetrics{
 		out:       os.Stderr,
 		counters:  make(map[string]*Counter),
 		formatter: NewFormatter("\n"),
@@ -50,21 +63,21 @@ func New() *Metrics {
 }
 
 // SetOutput sets output destination for metrics.
-func (m *Metrics) SetOutput(out io.Writer) {
+func (m *DefaultMetrics) SetOutput(out io.Writer) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.out = out
 }
 
 // SetFormatter sets a metrics's formatter.
-func (m *Metrics) SetFormatter(f Formatter) {
+func (m *DefaultMetrics) SetFormatter(f Formatter) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.formatter = f
 }
 
 // Formatter returns a metrics formatter.
-func (m *Metrics) Formatter() Formatter {
+func (m *DefaultMetrics) Formatter() Formatter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.formatter
@@ -72,7 +85,7 @@ func (m *Metrics) Formatter() Formatter {
 
 // Register registers a new counter in metric collection, returns error if the counter
 // with such name exists.
-func (m *Metrics) Register(counterName string, c *Counter) error {
+func (m *DefaultMetrics) Register(counterName string, c *Counter) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -85,7 +98,7 @@ func (m *Metrics) Register(counterName string, c *Counter) error {
 }
 
 // Get returns counter by name. If counter doesn't exist it will be created.
-func (m *Metrics) Get(counterName string) *Counter {
+func (m *DefaultMetrics) Get(counterName string) *Counter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -100,7 +113,7 @@ func (m *Metrics) Get(counterName string) *Counter {
 
 // GetJSON filters counters by given predicate and returns them as a json
 // marshaled map.
-func (m *Metrics) GetJSON(predicate func(string) bool) []byte {
+func (m *DefaultMetrics) GetJSON(predicate func(string) bool) []byte {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -116,7 +129,7 @@ func (m *Metrics) GetJSON(predicate func(string) bool) []byte {
 }
 
 // SetPanicHandler sets error handler for errors that causing the panic.
-func (m *Metrics) SetPanicHandler(handler PanicHandler) {
+func (m *DefaultMetrics) SetPanicHandler(handler PanicHandler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.panicHandler = handler
@@ -127,7 +140,7 @@ func (m *Metrics) SetPanicHandler(handler PanicHandler) {
 // Writing metrics to the file using this method will not recreate a file.
 // It appends existing metrics to existing file's data.
 // if you want to write metrics to clear file use WriteToFile() method.
-func (m *Metrics) Write() error {
+func (m *DefaultMetrics) Write() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -141,7 +154,7 @@ func (m *Metrics) Write() error {
 }
 
 // StartFileWriter starts a goroutine that will periodically writes metrics to a file.
-func (m *Metrics) StartFileWriter(p FileWriterParams) {
+func (m *DefaultMetrics) StartFileWriter(p FileWriterParams) {
 	m.wg.Add(1)
 
 	go func() {
@@ -169,14 +182,14 @@ func (m *Metrics) StartFileWriter(p FileWriterParams) {
 }
 
 // StopFileWriter stops a goroutine that will periodically writes metrics to a file.
-func (m *Metrics) StopFileWriter() {
+func (m *DefaultMetrics) StopFileWriter() {
 	m.stopOnce.Do(func() {
 		close(m.cancelCh)
 	})
 	m.wg.Wait()
 }
 
-func (m *Metrics) getPanicHandler() PanicHandler {
+func (m *DefaultMetrics) getPanicHandler() PanicHandler {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.panicHandler
@@ -192,7 +205,7 @@ func SetOutput(out io.Writer) {
 }
 
 // SetFormatter sets formatter for standard metrics.
-// Fore more details see Metrics.SetFormatter().
+// Fore more details see DefaultMetrics.SetFormatter().
 func SetFormatter(f Formatter) {
 	Default.mu.Lock()
 	defer Default.mu.Unlock()
@@ -224,13 +237,13 @@ func SetPanicHandler(handler PanicHandler) {
 }
 
 // Write all existing metrics to an output destination.
-// For more details see Metrics.Write().
+// For more details see DefaultMetrics.Write().
 func Write() error {
 	return Default.Write()
 }
 
 // StartFileWriter writes all metrics to a clear file.
-// For more details see Metrics.WriteToFile().
+// For more details see DefaultMetrics.StartFileWriter().
 func StartFileWriter(p FileWriterParams) {
 	Default.StartFileWriter(p)
 }
@@ -240,7 +253,7 @@ func StopFileWriter() {
 	Default.StopFileWriter()
 }
 
-func (m *Metrics) createAndWriteFile(path string) error {
+func (m *DefaultMetrics) createAndWriteFile(path string) error {
 	// create an empty temporary file.
 	file, err := safefile.Create(path, 0644)
 	if err != nil {
