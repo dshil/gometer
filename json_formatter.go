@@ -8,9 +8,7 @@ import (
 type jsonFormatter struct {
 }
 
-// Format implements Formatter.Format.
-// It always returns nil error.
-func (f *jsonFormatter) Format(counters map[string]Counter) ([]byte, error) {
+func (f *jsonFormatter) Format(counters map[string]Counter) []byte {
 	var buf bytes.Buffer
 
 	buf.WriteRune('{')
@@ -27,7 +25,7 @@ func (f *jsonFormatter) Format(counters map[string]Counter) ([]byte, error) {
 
 	buf.WriteRune('}')
 
-	return buf.Bytes(), nil
+	return buf.Bytes()
 }
 
 var _ Formatter = (*jsonFormatter)(nil)
