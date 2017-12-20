@@ -72,25 +72,63 @@ func (m *Metrics) Formatter() Formatter {
 
 // Register registers a new counter in metric collection, returns error if the counter
 // with such name exists.
-func (m *Metrics) Register(counterName string, c *DefaultCounter) error {
-	return registerCounter(m, counterName, c)
+func (m *Metrics) Register(counterName string, c Counter) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.counters[counterName]; ok {
+		return fmt.Errorf("counter with name `%v` exists", counterName)
+	}
+
+	m.counters[counterName] = c
+	return nil
 }
 
 // RegisterGroup registers a collection of counters in a metric collection, returns an
 // error if a counter with such name exists.
 func (m *Metrics) RegisterGroup(group *CountersGroup) error {
-	return registerGroup(m, group)
+	for name, counter := range group.Counters() {
+		if err := m.Register(name, counter); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Get returns counter by name or nil if counter doesn't exist.
 func (m *Metrics) Get(counterName string) Counter {
-	return getCounter(m, counterName)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	c := m.counters[counterName]
+	return c
 }
 
 // GetJSON filters counters by given predicate and returns them as a json
 // marshaled map.
 func (m *Metrics) GetJSON(predicate func(string) bool) []byte {
-	return getJSON(m, predicate)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	result := make(map[string]Counter)
+	formatter := jsonFormatter{}
+	for k, v := range m.counters {
+		if predicate(k) {
+			result[k] = v
+		}
+	}
+
+	data, err := formatter.Format(result)
+	if err == nil {
+		return data
+	}
+
+	if m.panicHandler != nil {
+		m.panicHandler.Handle(err)
+	} else {
+		panic(err)
+	}
+
+	return nil
 }
 
 // SetPanicHandler sets error handler for errors that causing the panic.
@@ -117,17 +155,55 @@ func (m *Metrics) Group(format string, v ...interface{}) *CountersGroup {
 // It appends existing metrics to existing file's data.
 // if you want to write metrics to clear file use WriteToFile() method.
 func (m *Metrics) Write() error {
-	return write(m)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	data, err := m.formatter.Format(m.counters)
+	if err != nil {
+		return err
+	}
+
+	if _, err := m.out.Write(data); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // StartFileWriter starts a goroutine that will periodically writes metrics to a file.
 func (m *Metrics) StartFileWriter(p FileWriterParams) {
-	startFileWriter(m, p)
+	m.wg.Add(1)
+
+	go func() {
+		defer m.wg.Done()
+
+		ticker := time.NewTicker(p.UpdateInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				err := m.createAndWriteFile(p.FilePath)
+				if err != nil {
+					if h := m.getPanicHandler(); h != nil {
+						h.Handle(err)
+						return
+					}
+					panic(err)
+				}
+			case <-m.cancelCh:
+				return
+			}
+		}
+	}()
 }
 
 // StopFileWriter stops a goroutine that will periodically writes metrics to a file.
 func (m *Metrics) StopFileWriter() {
-	stopFileWriter(m)
+	m.stopOnce.Do(func() {
+		close(m.cancelCh)
+	})
+	m.wg.Wait()
 }
 
 func (m *Metrics) getPanicHandler() PanicHandler {
@@ -156,18 +232,18 @@ func SetFormatter(f Formatter) {
 // Register registers a new counter in a metric collection, returns an error if a counter
 // with such name exists.
 func Register(counterName string, c Counter) error {
-	return registerCounter(Default, counterName, c)
+	return Default.Register(counterName, c)
 }
 
 // Get returns a counter by name or nil if the counter doesn't exist.
 func Get(counterName string) Counter {
-	return getCounter(Default, counterName)
+	return Default.Get(counterName)
 }
 
 // GetJSON filters counters by given predicate and returns them as a json
 // marshaled map.
 func GetJSON(predicate func(string) bool) []byte {
-	return getJSON(Default, predicate)
+	return Default.GetJSON(predicate)
 }
 
 // SetPanicHandler sets error handler for errors that causing the panic.
@@ -180,7 +256,7 @@ func SetPanicHandler(handler PanicHandler) {
 // Write all existing metrics to an output destination.
 // For more details see Metrics.Write().
 func Write() error {
-	return write(Default)
+	return Default.Write()
 }
 
 // StartFileWriter writes all metrics to a clear file.
@@ -208,100 +284,10 @@ func Group(format string, v ...interface{}) *CountersGroup {
 // RegisterGroup registers a collection of counters in a default metric collection,
 // returns an error if a counter with such name exists.
 func RegisterGroup(group *CountersGroup) error {
-	return registerGroup(Default, group)
+	return Default.RegisterGroup(group)
 }
 
-func registerGroup(metrics *Metrics, group *CountersGroup) error {
-	counters := group.Counters()
-
-	for name, counter := range counters {
-		if err := registerCounter(metrics, name, counter); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func registerCounter(metrics *Metrics, counterName string, counter Counter) error {
-	metrics.mu.Lock()
-	defer metrics.mu.Unlock()
-
-	if _, ok := metrics.counters[counterName]; ok {
-		return fmt.Errorf("counter with name `%v` exists", counterName)
-	}
-
-	metrics.counters[counterName] = counter
-	return nil
-}
-
-func getCounter(m *Metrics, counterName string) Counter {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	c := m.counters[counterName]
-	return c
-}
-
-func getJSON(m *Metrics, predicate func(string) bool) []byte {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	result := make(map[string]Counter)
-	formatter := jsonFormatter{}
-	for k, v := range m.counters {
-		if predicate(k) {
-			result[k] = v
-		}
-	}
-
-	data, err := formatter.Format(result)
-	if err == nil {
-		return data
-	}
-
-	if m.panicHandler != nil {
-		m.panicHandler.Handle(err)
-	} else {
-		panic(err)
-	}
-
-	return nil
-}
-
-func startFileWriter(m *Metrics, p FileWriterParams) {
-	m.wg.Add(1)
-
-	go func() {
-		defer m.wg.Done()
-
-		ticker := time.NewTicker(p.UpdateInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				err := createAndWriteFile(m, p.FilePath)
-				if err != nil {
-					if h := m.getPanicHandler(); h != nil {
-						h.Handle(err)
-						return
-					}
-					panic(err)
-				}
-			case <-m.cancelCh:
-				return
-			}
-		}
-	}()
-}
-
-func stopFileWriter(m *Metrics) {
-	m.stopOnce.Do(func() {
-		close(m.cancelCh)
-	})
-	m.wg.Wait()
-}
-
-func createAndWriteFile(m *Metrics, path string) error {
+func (m *Metrics) createAndWriteFile(path string) error {
 	// create an empty temporary file.
 	file, err := safefile.Create(path, 0644)
 	if err != nil {
@@ -310,27 +296,11 @@ func createAndWriteFile(m *Metrics, path string) error {
 	defer file.Close()
 
 	m.SetOutput(file)
-	if err = write(m); err != nil {
+	if err = m.Write(); err != nil {
 		return err
 	}
 
 	// rename temporary file to existing.
 	// it's necessary for atomic file rewriting.
 	return file.Commit()
-}
-
-func write(m *Metrics) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	data, err := m.formatter.Format(m.counters)
-	if err != nil {
-		return err
-	}
-
-	if _, err := m.out.Write(data); err != nil {
-		return err
-	}
-
-	return nil
 }
