@@ -117,18 +117,9 @@ func (m *Metrics) GetJSON(predicate func(string) bool) []byte {
 		}
 	}
 
-	data, err := formatter.Format(result)
-	if err == nil {
-		return data
-	}
-
-	if m.panicHandler != nil {
-		m.panicHandler.Handle(err)
-	} else {
-		panic(err)
-	}
-
-	return nil
+	// jsonFormatter.Format never returns errors.
+	data, _ := formatter.Format(result)
+	return data
 }
 
 // SetPanicHandler sets error handler for errors that causing the panic.
