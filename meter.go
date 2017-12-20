@@ -122,7 +122,18 @@ func getJSON(m *Metrics, predicate func(string) bool) []byte {
 		}
 	}
 
-	return formatter.Format(result)
+	data, err := formatter.Format(result)
+	if err == nil {
+		return data
+	}
+
+	if m.errHandler != nil {
+		m.errHandler.Handle(err)
+	} else {
+		panic(err)
+	}
+
+	return nil
 }
 
 // SetErrorHandler sets error handler for errors that can happen during writing metrics
@@ -224,9 +235,15 @@ func write(m *Metrics) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, err := m.out.Write(m.formatter.Format(m.counters)); err != nil {
+	data, err := m.formatter.Format(m.counters)
+	if err != nil {
 		return err
 	}
+
+	if _, err := m.out.Write(data); err != nil {
+		return err
+	}
+
 	return nil
 }
 
