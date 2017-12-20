@@ -10,7 +10,7 @@ import (
 
 type simpleFormatter struct{}
 
-func (f *simpleFormatter) Format(counters map[string]gometer.Counter) []byte {
+func (f *simpleFormatter) Format(counters map[string]*gometer.Counter) []byte {
 	var buf bytes.Buffer
 
 	for name, counter := range counters {
@@ -27,7 +27,7 @@ func ExampleSimpleFormatter() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(new(simpleFormatter))
 
-	c := gometer.DefaultCounter{}
+	c := gometer.Counter{}
 	c.Add(100)
 	if err := metrics.Register("foo", &c); err != nil {
 		fmt.Println(err)
@@ -48,7 +48,7 @@ func ExampleDefaultFormatter() {
 	metrics.SetOutput(os.Stdout)
 
 	for _, name := range []string{"foo", "bar", "baz"} {
-		c := gometer.DefaultCounter{}
+		c := gometer.Counter{}
 		c.Add(100)
 		if err := metrics.Register(name, &c); err != nil {
 			fmt.Println(err)

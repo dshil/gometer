@@ -16,7 +16,7 @@ func ExampleMetricsGetJSONGlobPatterns() {
 		"adc":  33,
 		"aaac": 17,
 	} {
-		c := new(gometer.DefaultCounter)
+		c := new(gometer.Counter)
 		c.Set(v)
 		if err := metrics.Register(k, c); err != nil {
 			fmt.Println(err)

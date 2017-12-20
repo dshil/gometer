@@ -42,7 +42,7 @@ func TestMetricsStartFileWriter(t *testing.T) {
 	metrics := New()
 	lineSep := "\n"
 
-	inc := DefaultCounter{}
+	inc := Counter{}
 	inc.Add(10)
 	require.Nil(t, metrics.Register("add_num", &inc))
 
@@ -56,7 +56,7 @@ func TestMetricsStartFileWriter(t *testing.T) {
 		"add_num": int64(10),
 	})
 
-	inc1 := DefaultCounter{}
+	inc1 := Counter{}
 	inc1.Add(4)
 	require.Nil(t, metrics.Register("inc_num", &inc1))
 
@@ -77,7 +77,7 @@ func TestMetricsSetFormatter(t *testing.T) {
 	metrics.SetOutput(file)
 	metrics.SetFormatter(NewFormatter("\n"))
 
-	c := DefaultCounter{}
+	c := Counter{}
 	c.Add(10)
 
 	require.Nil(t, metrics.Register("test_counter", &c))
@@ -112,7 +112,7 @@ func TestMetricsDefault(t *testing.T) {
 
 	require.NotNil(t, Default.formatter)
 
-	c := DefaultCounter{}
+	c := Counter{}
 	c.Add(10)
 
 	require.Nil(t, Register("default_metrics_counter", &c))
@@ -153,7 +153,7 @@ func TestMetricsExistingCounter(t *testing.T) {
 	t.Parallel()
 
 	metrics := New()
-	counter := DefaultCounter{}
+	counter := Counter{}
 
 	require.Nil(t, metrics.Register("existing_metrics", &counter))
 	assert.NotNil(t, metrics.Register("existing_metrics", &counter))
@@ -166,7 +166,7 @@ func TestMetricsGetCounter(t *testing.T) {
 	c := metrics.Get("not_existing_counter")
 	require.Nil(t, c)
 
-	counter := DefaultCounter{}
+	counter := Counter{}
 	counter.Set(10)
 	require.Nil(t, metrics.Register("get_counter", &counter))
 
@@ -191,10 +191,10 @@ func TestMetricsRegisterGroup(t *testing.T) {
 
 	group := metrics.Group("foo.")
 
-	barCounter := DefaultCounter{}
+	barCounter := Counter{}
 	barCounter.Add(100)
 
-	bazCounter := DefaultCounter{}
+	bazCounter := Counter{}
 	bazCounter.Add(140)
 
 	group.Add("bar", &barCounter)
@@ -213,11 +213,11 @@ func TestMetricsGetJSON(t *testing.T) {
 
 	metrics := New()
 
-	counter1 := new(DefaultCounter)
+	counter1 := new(Counter)
 	counter1.Set(10)
 	require.Nil(t, metrics.Register("counter1", counter1))
 
-	counter2 := new(DefaultCounter)
+	counter2 := new(Counter)
 	counter2.Set(42)
 	require.Nil(t, metrics.Register("counter2", counter2))
 
@@ -246,11 +246,11 @@ func TestMetricsGetJSON(t *testing.T) {
 func TestMetricsDefaultGetJSON(t *testing.T) {
 	t.Parallel()
 
-	counter1 := new(DefaultCounter)
+	counter1 := new(Counter)
 	counter1.Set(10)
 	require.Nil(t, Register("counter1", counter1))
 
-	counter2 := new(DefaultCounter)
+	counter2 := new(Counter)
 	counter2.Set(42)
 	require.Nil(t, Register("counter2", counter2))
 

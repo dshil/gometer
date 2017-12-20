@@ -18,7 +18,7 @@ type Metrics struct {
 
 	mu           sync.Mutex
 	out          io.Writer
-	counters     map[string]Counter
+	counters     map[string]*Counter
 	formatter    Formatter
 	panicHandler PanicHandler
 }
@@ -42,7 +42,7 @@ var Default = New()
 func New() *Metrics {
 	m := &Metrics{
 		out:       os.Stderr,
-		counters:  make(map[string]Counter),
+		counters:  make(map[string]*Counter),
 		formatter: NewFormatter("\n"),
 		cancelCh:  make(chan struct{}),
 	}
@@ -72,7 +72,7 @@ func (m *Metrics) Formatter() Formatter {
 
 // Register registers a new counter in metric collection, returns error if the counter
 // with such name exists.
-func (m *Metrics) Register(counterName string, c Counter) error {
+func (m *Metrics) Register(counterName string, c *Counter) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -96,7 +96,7 @@ func (m *Metrics) RegisterGroup(group *CountersGroup) error {
 }
 
 // Get returns counter by name or nil if counter doesn't exist.
-func (m *Metrics) Get(counterName string) Counter {
+func (m *Metrics) Get(counterName string) *Counter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	c := m.counters[counterName]
@@ -109,7 +109,7 @@ func (m *Metrics) GetJSON(predicate func(string) bool) []byte {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	result := make(map[string]Counter)
+	result := make(map[string]*Counter)
 	formatter := jsonFormatter{}
 	for k, v := range m.counters {
 		if predicate(k) {
@@ -134,7 +134,7 @@ func (m *Metrics) SetPanicHandler(handler PanicHandler) {
 func (m *Metrics) Group(format string, v ...interface{}) *CountersGroup {
 	return &CountersGroup{
 		prefix:   fmt.Sprintf(format, v...),
-		counters: make(map[string]Counter),
+		counters: make(map[string]*Counter),
 	}
 }
 
@@ -217,12 +217,12 @@ func SetFormatter(f Formatter) {
 
 // Register registers a new counter in a metric collection, returns an error if a counter
 // with such name exists.
-func Register(counterName string, c Counter) error {
+func Register(counterName string, c *Counter) error {
 	return Default.Register(counterName, c)
 }
 
 // Get returns a counter by name or nil if the counter doesn't exist.
-func Get(counterName string) Counter {
+func Get(counterName string) *Counter {
 	return Default.Get(counterName)
 }
 
@@ -263,7 +263,7 @@ func StopFileWriter() {
 func Group(format string, v ...interface{}) *CountersGroup {
 	return &CountersGroup{
 		prefix:   fmt.Sprintf(format, v...),
-		counters: make(map[string]Counter),
+		counters: make(map[string]*Counter),
 	}
 }
 

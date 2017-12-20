@@ -11,7 +11,7 @@ func TestCountersGroupAdd(t *testing.T) {
 	metrics := New()
 	group := metrics.Group("foo.")
 
-	counter := DefaultCounter{}
+	counter := Counter{}
 	counter.Add(10)
 	group.Add("bar", &counter)
 
@@ -26,7 +26,7 @@ func TestCountersGroupCounters(t *testing.T) {
 	group := metrics.Group("%s.", "foo")
 	require.NotNil(t, group)
 
-	bazCounter := DefaultCounter{}
+	bazCounter := Counter{}
 	bazCounter.Set(10)
 
 	group.Add("baz", &bazCounter)
