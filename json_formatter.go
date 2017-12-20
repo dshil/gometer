@@ -8,7 +8,7 @@ import (
 type jsonFormatter struct {
 }
 
-func (f *jsonFormatter) Format(counters map[string]Counter) []byte {
+func (f *jsonFormatter) Format(counters map[string]*Counter) []byte {
 	var buf bytes.Buffer
 
 	buf.WriteRune('{')

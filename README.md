@@ -35,7 +35,7 @@ func ExampleWriteToStdout() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(gometer.NewFormatter("\n"))
 
-	c := gometer.DefaultCounter{}
+	c := gometer.Counter{}
 	c.Add(1)
 	if err := metrics.Register("http_requests_total", &c); err != nil {
 		fmt.Println(err.Error())
@@ -89,7 +89,7 @@ import (
 
 type simpleFormatter struct{}
 
-func (f *simpleFormatter) Format(counters map[string]gometer.Counter) []byte {
+func (f *simpleFormatter) Format(counters map[string]*gometer.Counter) []byte {
 	var buf bytes.Buffer
 
 	for name, counter := range counters {
@@ -106,7 +106,7 @@ func ExampleSimpleFormatter() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(new(simpleFormatter))
 
-	c := gometer.DefaultCounter{}
+	c := gometer.Counter{}
 	c.Add(100)
 	if err := metrics.Register("foo", &c); err != nil {
 		fmt.Println(err)
@@ -127,7 +127,7 @@ func ExampleDefaultFormatter() {
 	metrics.SetOutput(os.Stdout)
 
 	for _, name := range []string{"foo", "bar", "baz"} {
-		c := gometer.DefaultCounter{}
+		c := gometer.Counter{}
 		c.Add(100)
 		if err := metrics.Register(name, &c); err != nil {
 			fmt.Println(err)
@@ -168,7 +168,7 @@ func ExampleMetricsGetJSONGlobPatterns() {
 		"adc":  33,
 		"aaac": 17,
 	} {
-		c := new(gometer.DefaultCounter)
+		c := new(gometer.Counter)
 		c.Set(v)
 		if err := metrics.Register(k, c); err != nil {
 			fmt.Println(err)
@@ -209,7 +209,6 @@ func ExampleMetricsGetJSONGlobPatterns() {
 		b := metrics.GetJSON(g.Match)
 		fmt.Println(string(b))
 	}
-
 	// Output:
 	// {"aaac":17,"abb":42,"abc":10,"adc":33}
 	// {"aaac":17,"abb":42,"abc":10,"adc":33}

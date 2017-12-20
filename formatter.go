@@ -8,7 +8,7 @@ import (
 
 // Formatter determines a format of metrics representation.
 type Formatter interface {
-	Format(counters map[string]Counter) []byte
+	Format(counters map[string]*Counter) []byte
 }
 
 // NewFormatter returns new default formatter.
@@ -29,7 +29,7 @@ type defaultFormatter struct {
 	lineSeparator string
 }
 
-func (f *defaultFormatter) Format(counters map[string]Counter) []byte {
+func (f *defaultFormatter) Format(counters map[string]*Counter) []byte {
 	var buf bytes.Buffer
 
 	for _, k := range sortedKeys(counters) {
@@ -41,7 +41,7 @@ func (f *defaultFormatter) Format(counters map[string]Counter) []byte {
 
 var _ Formatter = (*defaultFormatter)(nil)
 
-func sortedKeys(m map[string]Counter) []string {
+func sortedKeys(m map[string]*Counter) []string {
 	s := make([]string, 0, len(m))
 	for key := range m {
 		s = append(s, key)
