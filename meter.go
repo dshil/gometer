@@ -117,9 +117,7 @@ func (m *Metrics) GetJSON(predicate func(string) bool) []byte {
 		}
 	}
 
-	// jsonFormatter.Format never returns errors.
-	data, _ := formatter.Format(result)
-	return data
+	return formatter.Format(result)
 }
 
 // SetPanicHandler sets error handler for errors that causing the panic.
@@ -149,10 +147,7 @@ func (m *Metrics) Write() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	data, err := m.formatter.Format(m.counters)
-	if err != nil {
-		return err
-	}
+	data := m.formatter.Format(m.counters)
 
 	if _, err := m.out.Write(data); err != nil {
 		return err

@@ -89,17 +89,14 @@ import (
 
 type simpleFormatter struct{}
 
-func (f *simpleFormatter) Format(counters map[string]gometer.Counter) ([]byte, error) {
+func (f *simpleFormatter) Format(counters map[string]gometer.Counter) []byte {
 	var buf bytes.Buffer
 
 	for name, counter := range counters {
-		_, err := fmt.Fprintf(&buf, "%s:%d%s", name, counter.Get(), "\n")
-		if err != nil {
-			return nil, err
-		}
+		fmt.Fprintf(&buf, "%s:%d%s", name, counter.Get(), "\n")
 	}
 
-	return buf.Bytes(), nil
+	return buf.Bytes()
 }
 
 var _ gometer.Formatter = (*simpleFormatter)(nil)
