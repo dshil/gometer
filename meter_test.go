@@ -134,11 +134,6 @@ func TestMetricsDefault(t *testing.T) {
 	counter := Get("default_metrics_counter")
 	require.NotNil(t, counter)
 	assert.Equal(t, int64(10), counter.Get())
-
-	group := Group("foo.%s", "bar")
-	assert.NotNil(t, group)
-
-	assert.Nil(t, RegisterGroup(group))
 }
 
 func TestMetricsSetPanicHandler(t *testing.T) {
@@ -187,39 +182,6 @@ func TestMetricsGetTwice(t *testing.T) {
 	require.NotNil(t, c2)
 	require.Equal(t, int64(11), c2.Get())
 	assert.Equal(t, c, c2)
-}
-
-func TestMetricsGroup(t *testing.T) {
-	t.Parallel()
-
-	metrics := New()
-
-	group := metrics.Group("foo")
-	assert.NotNil(t, group)
-}
-
-func TestMetricsRegisterGroup(t *testing.T) {
-	t.Parallel()
-
-	metrics := New()
-
-	group := metrics.Group("foo.")
-
-	barCounter := Counter{}
-	barCounter.Add(100)
-
-	bazCounter := Counter{}
-	bazCounter.Add(140)
-
-	group.Add("bar", &barCounter)
-	group.Add("baz", &bazCounter)
-
-	err := metrics.RegisterGroup(group)
-	require.Nil(t, err)
-
-	gotBar := metrics.Get("foo.bar")
-	require.NotNil(t, gotBar)
-	assert.Equal(t, int64(100), gotBar.Get())
 }
 
 func TestMetricsGetJSON(t *testing.T) {
