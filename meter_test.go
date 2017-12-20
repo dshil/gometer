@@ -50,6 +50,7 @@ func TestMetricsStartFileWriter(t *testing.T) {
 		FilePath:       file.Name(),
 		UpdateInterval: time.Millisecond * 100,
 	})
+	defer metrics.StopFileWriter()
 
 	checkFileWriter(t, file.Name(), lineSep, map[string]int64{
 		"add_num": int64(10),

@@ -12,12 +12,15 @@ import (
 
 // Metrics is a collection of metrics.
 type Metrics struct {
+	wg       sync.WaitGroup
+	stopOnce sync.Once
+	cancelCh chan struct{}
+
 	mu           sync.Mutex
 	out          io.Writer
 	counters     map[string]Counter
 	formatter    Formatter
 	panicHandler PanicHandler
-	stopCh       chan struct{}
 }
 
 // FileWriterParams represents a params for asynchronous file writing operation.
@@ -41,6 +44,7 @@ func New() *Metrics {
 		out:       os.Stderr,
 		counters:  make(map[string]Counter),
 		formatter: NewFormatter("\n"),
+		cancelCh:  make(chan struct{}),
 	}
 	return m
 }
@@ -70,18 +74,6 @@ func (m *Metrics) Formatter() Formatter {
 // with such name exists.
 func (m *Metrics) Register(counterName string, c *DefaultCounter) error {
 	return registerCounter(m, counterName, c)
-}
-
-func registerCounter(metrics *Metrics, counterName string, counter Counter) error {
-	metrics.mu.Lock()
-	defer metrics.mu.Unlock()
-
-	if _, ok := metrics.counters[counterName]; ok {
-		return fmt.Errorf("counter with name `%v` exists", counterName)
-	}
-
-	metrics.counters[counterName] = counter
-	return nil
 }
 
 // RegisterGroup registers a collection of counters in a metric collection, returns an
@@ -130,8 +122,7 @@ func (m *Metrics) Write() error {
 
 // StartFileWriter starts a goroutine that will periodically writes metrics to a file.
 func (m *Metrics) StartFileWriter(p FileWriterParams) {
-	m.stopCh = make(chan struct{})
-	go startFileWriter(m, p)
+	startFileWriter(m, p)
 }
 
 // StopFileWriter stops a goroutine that will periodically writes metrics to a file.
@@ -231,6 +222,18 @@ func registerGroup(metrics *Metrics, group *CountersGroup) error {
 	return nil
 }
 
+func registerCounter(metrics *Metrics, counterName string, counter Counter) error {
+	metrics.mu.Lock()
+	defer metrics.mu.Unlock()
+
+	if _, ok := metrics.counters[counterName]; ok {
+		return fmt.Errorf("counter with name `%v` exists", counterName)
+	}
+
+	metrics.counters[counterName] = counter
+	return nil
+}
+
 func getCounter(m *Metrics, counterName string) Counter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -265,32 +268,37 @@ func getJSON(m *Metrics, predicate func(string) bool) []byte {
 }
 
 func startFileWriter(m *Metrics, p FileWriterParams) {
-	ticker := time.NewTicker(p.UpdateInterval)
-	defer ticker.Stop()
-	defer close(m.stopCh)
+	m.wg.Add(1)
 
-	for {
-		select {
-		case <-ticker.C:
-			if err := createAndWriteFile(m, p.FilePath); err != nil {
-				if h := m.getPanicHandler(); h != nil {
-					h.Handle(err)
-					return
+	go func() {
+		defer m.wg.Done()
+
+		ticker := time.NewTicker(p.UpdateInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				err := createAndWriteFile(m, p.FilePath)
+				if err != nil {
+					if h := m.getPanicHandler(); h != nil {
+						h.Handle(err)
+						return
+					}
+					panic(err)
 				}
-				panic(err)
+			case <-m.cancelCh:
+				return
 			}
-		case <-m.stopCh:
-			return
 		}
-	}
+	}()
 }
 
 func stopFileWriter(m *Metrics) {
-	if m.stopCh != nil {
-		m.stopCh <- struct{}{}
-		<-m.stopCh
-		m.stopCh = nil
-	}
+	m.stopOnce.Do(func() {
+		close(m.cancelCh)
+	})
+	m.wg.Wait()
 }
 
 func createAndWriteFile(m *Metrics, path string) error {
