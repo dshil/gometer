@@ -159,20 +159,34 @@ func TestMetricsExistingCounter(t *testing.T) {
 	assert.NotNil(t, metrics.Register("existing_metrics", &counter))
 }
 
-func TestMetricsGetCounter(t *testing.T) {
+func TestMetricsGet(t *testing.T) {
 	t.Parallel()
 
 	metrics := New()
-	c := metrics.Get("not_existing_counter")
-	require.Nil(t, c)
 
 	counter := Counter{}
 	counter.Set(10)
 	require.Nil(t, metrics.Register("get_counter", &counter))
 
-	c = metrics.Get("get_counter")
+	c := metrics.Get("get_counter")
 	require.NotNil(t, c)
-	assert.Equal(t, int64(10), c.Get())
+	require.Equal(t, int64(10), c.Get())
+	assert.Equal(t, &counter, c)
+}
+
+func TestMetricsGetTwice(t *testing.T) {
+	t.Parallel()
+
+	metrics := New()
+	c := metrics.Get("new_counter")
+	require.NotNil(t, c)
+	require.Equal(t, int64(0), c.Get())
+	c.Set(11)
+
+	c2 := metrics.Get("new_counter")
+	require.NotNil(t, c2)
+	require.Equal(t, int64(11), c2.Get())
+	assert.Equal(t, c, c2)
 }
 
 func TestMetricsGroup(t *testing.T) {
