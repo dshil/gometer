@@ -8,31 +8,24 @@ import (
 type jsonFormatter struct {
 }
 
+// Format implements Formatter.Format.
+// It always returns nil error.
 func (f *jsonFormatter) Format(counters map[string]Counter) ([]byte, error) {
 	var buf bytes.Buffer
 
-	_, err := buf.WriteRune('{')
-	if err != nil {
-		return nil, err
-	}
+	buf.WriteRune('{')
 
 	first := true
 	for _, k := range sortedKeys(counters) {
 		if first {
 			first = false
 		} else {
-			if _, err := buf.WriteRune(','); err != nil {
-				return nil, err
-			}
+			buf.WriteRune(',')
 		}
-		if _, err := fmt.Fprintf(&buf, `"%s":%d`, k, counters[k].Get()); err != nil {
-			return nil, err
-		}
+		fmt.Fprintf(&buf, `"%s":%d`, k, counters[k].Get())
 	}
 
-	if _, err := buf.WriteRune('}'); err != nil {
-		return nil, err
-	}
+	buf.WriteRune('}')
 
 	return buf.Bytes(), nil
 }

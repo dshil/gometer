@@ -29,14 +29,13 @@ type defaultFormatter struct {
 	lineSeparator string
 }
 
+// Format implements Formatter.Format.
+// It always returns nil error.
 func (f *defaultFormatter) Format(counters map[string]Counter) ([]byte, error) {
 	var buf bytes.Buffer
 
 	for _, k := range sortedKeys(counters) {
-		_, err := fmt.Fprintf(&buf, "%s = %d%s", k, counters[k].Get(), f.lineSeparator)
-		if err != nil {
-			return nil, err
-		}
+		fmt.Fprintf(&buf, "%s = %d%s", k, counters[k].Get(), f.lineSeparator)
 	}
 
 	return buf.Bytes(), nil
