@@ -95,11 +95,17 @@ func (m *Metrics) RegisterGroup(group *CountersGroup) error {
 	return nil
 }
 
-// Get returns counter by name or nil if counter doesn't exist.
+// Get returns counter by name. If counter doesn't exist it will be created.
 func (m *Metrics) Get(counterName string) *Counter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	c := m.counters[counterName]
+
+	if c, ok := m.counters[counterName]; ok {
+		return c
+	}
+
+	c := &Counter{}
+	m.counters[counterName] = c
 	return c
 }
 
