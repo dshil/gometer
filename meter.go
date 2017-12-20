@@ -84,17 +84,6 @@ func (m *Metrics) Register(counterName string, c *Counter) error {
 	return nil
 }
 
-// RegisterGroup registers a collection of counters in a metric collection, returns an
-// error if a counter with such name exists.
-func (m *Metrics) RegisterGroup(group *CountersGroup) error {
-	for name, counter := range group.Counters() {
-		if err := m.Register(name, counter); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Get returns counter by name. If counter doesn't exist it will be created.
 func (m *Metrics) Get(counterName string) *Counter {
 	m.mu.Lock()
@@ -131,17 +120,6 @@ func (m *Metrics) SetPanicHandler(handler PanicHandler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.panicHandler = handler
-}
-
-// Group returns a new counters group.
-//
-// During a registration a group of counters in the metrics collection, a base prefix
-// will be added to each counter name in this group.
-func (m *Metrics) Group(format string, v ...interface{}) *CountersGroup {
-	return &CountersGroup{
-		prefix:   fmt.Sprintf(format, v...),
-		counters: make(map[string]*Counter),
-	}
 }
 
 // Write writes all existing metrics to output destination.
@@ -260,23 +238,6 @@ func StartFileWriter(p FileWriterParams) {
 // StopFileWriter stops a goroutine that will periodically writes metrics to a file.
 func StopFileWriter() {
 	Default.StopFileWriter()
-}
-
-// Group returns new group counter for the default metrics collection..
-//
-// During registration a group of counters in a metrics collection, a base prefix will be
-// added to each counter name in this group.
-func Group(format string, v ...interface{}) *CountersGroup {
-	return &CountersGroup{
-		prefix:   fmt.Sprintf(format, v...),
-		counters: make(map[string]*Counter),
-	}
-}
-
-// RegisterGroup registers a collection of counters in a default metric collection,
-// returns an error if a counter with such name exists.
-func RegisterGroup(group *CountersGroup) error {
-	return Default.RegisterGroup(group)
 }
 
 func (m *Metrics) createAndWriteFile(path string) error {
