@@ -157,7 +157,7 @@ func TestMetricsGetTwice(t *testing.T) {
 	c2 := metrics.Get("new_counter")
 	require.NotNil(t, c2)
 	require.Equal(t, int64(11), c2.Get())
-	assert.Equal(t, c, c2)
+	assert.True(t, c == c2)
 }
 
 func TestMetricsGetJSON(t *testing.T) {
