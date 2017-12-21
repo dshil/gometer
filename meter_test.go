@@ -42,9 +42,8 @@ func TestMetricsStartFileWriter(t *testing.T) {
 	metrics := New()
 	lineSep := "\n"
 
-	inc := Counter{}
+	inc := metrics.Get("add_num")
 	inc.Add(10)
-	require.Nil(t, metrics.Register("add_num", &inc))
 
 	metrics.StartFileWriter(FileWriterParams{
 		FilePath:       file.Name(),
@@ -56,9 +55,8 @@ func TestMetricsStartFileWriter(t *testing.T) {
 		"add_num": int64(10),
 	})
 
-	inc1 := Counter{}
+	inc1 := metrics.Get("inc_num")
 	inc1.Add(4)
-	require.Nil(t, metrics.Register("inc_num", &inc1))
 
 	checkFileWriter(t, file.Name(), lineSep, map[string]int64{
 		"add_num": int64(10),
@@ -77,10 +75,9 @@ func TestMetricsSetFormatter(t *testing.T) {
 	metrics.SetOutput(file)
 	metrics.SetFormatter(NewFormatter("\n"))
 
-	c := Counter{}
+	c := metrics.Get("test_counter")
 	c.Add(10)
 
-	require.Nil(t, metrics.Register("test_counter", &c))
 	require.Nil(t, metrics.Write())
 
 	data, err := ioutil.ReadFile(fileName)
@@ -112,10 +109,9 @@ func TestMetricsDefault(t *testing.T) {
 
 	require.NotNil(t, Default.formatter)
 
-	c := Counter{}
+	c := Get("default_metrics_counter")
 	c.Add(10)
 
-	require.Nil(t, Register("default_metrics_counter", &c))
 	require.Nil(t, Write())
 	removeTempFile(t, file)
 
@@ -148,31 +144,6 @@ func TestMetricsSetPanicHandler(t *testing.T) {
 	assert.NotNil(t, metrics.panicHandler)
 }
 
-func TestMetricsExistingCounter(t *testing.T) {
-	t.Parallel()
-
-	metrics := New()
-	counter := Counter{}
-
-	require.Nil(t, metrics.Register("existing_metrics", &counter))
-	assert.NotNil(t, metrics.Register("existing_metrics", &counter))
-}
-
-func TestMetricsGet(t *testing.T) {
-	t.Parallel()
-
-	metrics := New()
-
-	counter := Counter{}
-	counter.Set(10)
-	require.Nil(t, metrics.Register("get_counter", &counter))
-
-	c := metrics.Get("get_counter")
-	require.NotNil(t, c)
-	require.Equal(t, int64(10), c.Get())
-	assert.Equal(t, &counter, c)
-}
-
 func TestMetricsGetTwice(t *testing.T) {
 	t.Parallel()
 
@@ -193,13 +164,11 @@ func TestMetricsGetJSON(t *testing.T) {
 
 	metrics := New()
 
-	counter1 := new(Counter)
+	counter1 := metrics.Get("counter1")
 	counter1.Set(10)
-	require.Nil(t, metrics.Register("counter1", counter1))
 
-	counter2 := new(Counter)
+	counter2 := metrics.Get("counter2")
 	counter2.Set(42)
-	require.Nil(t, metrics.Register("counter2", counter2))
 
 	b := metrics.GetJSON(func(key string) bool {
 		if key == "counter1" || key == "counter2" {
@@ -226,13 +195,11 @@ func TestMetricsGetJSON(t *testing.T) {
 func TestMetricsDefaultGetJSON(t *testing.T) {
 	t.Parallel()
 
-	counter1 := new(Counter)
+	counter1 := Get("counter1")
 	counter1.Set(10)
-	require.Nil(t, Register("counter1", counter1))
 
-	counter2 := new(Counter)
+	counter2 := Get("counter2")
 	counter2.Set(42)
-	require.Nil(t, Register("counter2", counter2))
 
 	b := GetJSON(func(key string) bool {
 		if key == "counter1" || key == "counter2" {
@@ -326,5 +293,4 @@ func checkFileWriter(t *testing.T, fileName, lineSep string, counters map[string
 			time.Sleep(time.Millisecond * 100)
 		}
 	}
-
 }

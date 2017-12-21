@@ -11,11 +11,6 @@ type PrefixMetrics struct {
 
 var _ Metrics = (*PrefixMetrics)(nil)
 
-// Register calls underlying Metrics Register method with prefixed counterName.
-func (m *PrefixMetrics) Register(counterName string, c *Counter) error {
-	return m.Metrics.Register(m.prefix+counterName, c)
-}
-
 // Get calls underlying Metrics Get method with prefixed counterName.
 func (m *PrefixMetrics) Get(counterName string) *Counter {
 	return m.Metrics.Get(m.prefix + counterName)

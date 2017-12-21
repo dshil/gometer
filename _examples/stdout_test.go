@@ -13,12 +13,8 @@ func ExampleWriteToStdout() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(gometer.NewFormatter("\n"))
 
-	c := gometer.Counter{}
+	c := metrics.Get("http_requests_total")
 	c.Add(1)
-	if err := metrics.Register("http_requests_total", &c); err != nil {
-		fmt.Println(err.Error())
-		return
-	}
 
 	if err := metrics.Write(); err != nil {
 		fmt.Println(err.Error())

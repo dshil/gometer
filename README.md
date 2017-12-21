@@ -35,12 +35,8 @@ func ExampleWriteToStdout() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(gometer.NewFormatter("\n"))
 
-	c := gometer.Counter{}
+	c := metrics.Get("http_requests_total")
 	c.Add(1)
-	if err := metrics.Register("http_requests_total", &c); err != nil {
-		fmt.Println(err.Error())
-		return
-	}
 
 	if err := metrics.Write(); err != nil {
 		fmt.Println(err.Error())
@@ -106,12 +102,8 @@ func ExampleSimpleFormatter() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(new(simpleFormatter))
 
-	c := gometer.Counter{}
+	c := metrics.Get("foo")
 	c.Add(100)
-	if err := metrics.Register("foo", &c); err != nil {
-		fmt.Println(err)
-		return
-	}
 
 	if err := metrics.Write(); err != nil {
 		fmt.Println(err)
@@ -127,12 +119,8 @@ func ExampleDefaultFormatter() {
 	metrics.SetOutput(os.Stdout)
 
 	for _, name := range []string{"foo", "bar", "baz"} {
-		c := gometer.Counter{}
+		c := metrics.Get(name)
 		c.Add(100)
-		if err := metrics.Register(name, &c); err != nil {
-			fmt.Println(err)
-			return
-		}
 	}
 
 	if err := metrics.Write(); err != nil {
@@ -168,12 +156,8 @@ func ExampleMetricsGetJSONGlobPatterns() {
 		"adc":  33,
 		"aaac": 17,
 	} {
-		c := new(gometer.Counter)
+		c := metrics.Get(k)
 		c.Set(v)
-		if err := metrics.Register(k, c); err != nil {
-			fmt.Println(err)
-			return
-		}
 	}
 
 	for _, tCase := range [...]struct {
