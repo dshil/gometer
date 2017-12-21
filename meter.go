@@ -97,8 +97,7 @@ func (m *DefaultMetrics) Get(counterName string) *Counter {
 	return c
 }
 
-// GetJSON filters counters by given predicate and returns them as a json
-// marshaled map.
+// GetJSON filters counters by given predicate and returns them as a json marshaled map.
 func (m *DefaultMetrics) GetJSON(predicate func(string) bool) []byte {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -125,7 +124,7 @@ func (m *DefaultMetrics) SetPanicHandler(handler PanicHandler) {
 //
 // Writing metrics to the file using this method will not recreate a file.
 // It appends existing metrics to existing file's data.
-// if you want to write metrics to clear file use WriteToFile() method.
+// if you want to write metrics to clear file use StartFileWriter() method.
 func (m *DefaultMetrics) Write() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -139,7 +138,7 @@ func (m *DefaultMetrics) Write() error {
 	return nil
 }
 
-// StartFileWriter starts a goroutine that will periodically writes metrics to a file.
+// StartFileWriter starts a goroutine that periodically writes metrics to a file.
 func (m *DefaultMetrics) StartFileWriter(p FileWriterParams) {
 	m.wg.Add(1)
 
@@ -167,7 +166,7 @@ func (m *DefaultMetrics) StartFileWriter(p FileWriterParams) {
 	}()
 }
 
-// StopFileWriter stops a goroutine that will periodically writes metrics to a file.
+// StopFileWriter stops a goroutine that periodically writes metrics to a file.
 func (m *DefaultMetrics) StopFileWriter() {
 	m.stopOnce.Do(func() {
 		close(m.cancelCh)
@@ -206,13 +205,12 @@ func SetFormatter(f Formatter) {
 	Default.formatter = f
 }
 
-// Get returns a counter by name or nil if the counter doesn't exist.
+// Get returns counter by name. If counter doesn't exist it will be created.
 func Get(counterName string) *Counter {
 	return Default.Get(counterName)
 }
 
-// GetJSON filters counters by given predicate and returns them as a json
-// marshaled map.
+// GetJSON filters counters by given predicate and returns them as a json marshaled map.
 func GetJSON(predicate func(string) bool) []byte {
 	return Default.GetJSON(predicate)
 }
@@ -230,13 +228,13 @@ func Write() error {
 	return Default.Write()
 }
 
-// StartFileWriter writes all metrics to a clear file.
+// StartFileWriter starts a goroutine that periodically writes metrics to a file.
 // For more details see DefaultMetrics.StartFileWriter().
 func StartFileWriter(p FileWriterParams) {
 	Default.StartFileWriter(p)
 }
 
-// StopFileWriter stops a goroutine that will periodically writes metrics to a file.
+// StopFileWriter stops a goroutine that periodically writes metrics to a file.
 func StopFileWriter() {
 	Default.StopFileWriter()
 }
