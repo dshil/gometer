@@ -27,12 +27,8 @@ func ExampleSimpleFormatter() {
 	metrics.SetOutput(os.Stdout)
 	metrics.SetFormatter(new(simpleFormatter))
 
-	c := gometer.Counter{}
+	c := metrics.Get("foo")
 	c.Add(100)
-	if err := metrics.Register("foo", &c); err != nil {
-		fmt.Println(err)
-		return
-	}
 
 	if err := metrics.Write(); err != nil {
 		fmt.Println(err)
@@ -48,12 +44,8 @@ func ExampleDefaultFormatter() {
 	metrics.SetOutput(os.Stdout)
 
 	for _, name := range []string{"foo", "bar", "baz"} {
-		c := gometer.Counter{}
+		c := metrics.Get(name)
 		c.Add(100)
-		if err := metrics.Register(name, &c); err != nil {
-			fmt.Println(err)
-			return
-		}
 	}
 
 	if err := metrics.Write(); err != nil {

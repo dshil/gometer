@@ -15,7 +15,6 @@ type Metrics interface {
 	SetOutput(io.Writer)
 	SetFormatter(Formatter)
 	Formatter() Formatter
-	Register(string, *Counter) error
 	Get(string) *Counter
 	GetJSON(func(string) bool) []byte
 	WithPrefix(string, ...interface{}) *PrefixMetrics
@@ -82,20 +81,6 @@ func (m *DefaultMetrics) Formatter() Formatter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.formatter
-}
-
-// Register registers a new counter in metric collection, returns error if the counter
-// with such name exists.
-func (m *DefaultMetrics) Register(counterName string, c *Counter) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if _, ok := m.counters[counterName]; ok {
-		return fmt.Errorf("counter with name `%v` exists", counterName)
-	}
-
-	m.counters[counterName] = c
-	return nil
 }
 
 // Get returns counter by name. If counter doesn't exist it will be created.
@@ -219,12 +204,6 @@ func SetFormatter(f Formatter) {
 	Default.mu.Lock()
 	defer Default.mu.Unlock()
 	Default.formatter = f
-}
-
-// Register registers a new counter in a metric collection, returns an error if a counter
-// with such name exists.
-func Register(counterName string, c *Counter) error {
-	return Default.Register(counterName, c)
 }
 
 // Get returns a counter by name or nil if the counter doesn't exist.

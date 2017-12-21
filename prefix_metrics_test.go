@@ -7,22 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPrefixMetricsRegister(t *testing.T) {
-	originalMetrics := New()
-	prefixMetrics := originalMetrics.WithPrefix("data.")
-
-	counter1 := &Counter{}
-	counter1.Set(11)
-	counter2 := &Counter{}
-	counter2.Set(22)
-
-	require.Nil(t, prefixMetrics.Register("first", counter1))
-	require.Nil(t, prefixMetrics.Register("second", counter2))
-
-	require.True(t, counter1 == originalMetrics.Get("data.first"))
-	assert.True(t, counter2 == originalMetrics.Get("data.second"))
-}
-
 func TestPrefixMetricsGet(t *testing.T) {
 	originalMetrics := New()
 	prefixMetrics := originalMetrics.WithPrefix("data.")
