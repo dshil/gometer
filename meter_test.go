@@ -140,8 +140,9 @@ func TestMetricsSetPanicHandler(t *testing.T) {
 	t.Parallel()
 
 	metrics := New()
-	metrics.SetPanicHandler(new(mockPanicHandler))
-	assert.NotNil(t, metrics.panicHandler)
+	handler := new(mockPanicHandler)
+	metrics.SetPanicHandler(handler)
+	assert.Equal(t, handler, metrics.getPanicHandler())
 }
 
 func TestMetricsGetTwice(t *testing.T) {
