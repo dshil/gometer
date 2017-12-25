@@ -224,6 +224,32 @@ func TestMetricsDefaultGetJSON(t *testing.T) {
 	assert.JSONEq(t, `{}`, string(b))
 }
 
+func TestMetricsSetRootPrefix(t *testing.T) {
+	t.Parallel()
+
+	file := newTempFile(t)
+	require.Nil(t, file.Close())
+	defer os.Remove(file.Name())
+
+	prefix := "test."
+	metrics := New()
+	metrics.SetRootPrefix(prefix)
+	lineSep := "\n"
+
+	inc := metrics.Get("add_num")
+	inc.Add(10)
+
+	metrics.StartFileWriter(FileWriterParams{
+		FilePath:       file.Name(),
+		UpdateInterval: time.Millisecond * 100,
+	})
+	defer metrics.StopFileWriter()
+
+	checkFileWriter(t, file.Name(), lineSep, map[string]int64{
+		prefix + "add_num": int64(10),
+	})
+}
+
 type mockPanicHandler struct{}
 
 func (h *mockPanicHandler) Handle(err error) {

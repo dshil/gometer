@@ -3,12 +3,17 @@ package gometer
 import (
 	"bytes"
 	"fmt"
-	"sort"
 )
+
+// SortedCounters represents counters slice sorted by name
+type SortedCounters []struct {
+	Name    string
+	Counter *Counter
+}
 
 // Formatter determines a format of metrics representation.
 type Formatter interface {
-	Format(counters map[string]*Counter) []byte
+	Format(counters SortedCounters) []byte
 }
 
 // NewFormatter returns new default formatter.
@@ -29,23 +34,14 @@ type defaultFormatter struct {
 	lineSeparator string
 }
 
-func (f *defaultFormatter) Format(counters map[string]*Counter) []byte {
+func (f *defaultFormatter) Format(counters SortedCounters) []byte {
 	var buf bytes.Buffer
 
-	for _, k := range sortedKeys(counters) {
-		fmt.Fprintf(&buf, "%s = %d%s", k, counters[k].Get(), f.lineSeparator)
+	for _, c := range counters {
+		fmt.Fprintf(&buf, "%s = %d%s", c.Name, c.Counter.Get(), f.lineSeparator)
 	}
 
 	return buf.Bytes()
 }
 
 var _ Formatter = (*defaultFormatter)(nil)
-
-func sortedKeys(m map[string]*Counter) []string {
-	s := make([]string, 0, len(m))
-	for key := range m {
-		s = append(s, key)
-	}
-	sort.Strings(s)
-	return s
-}

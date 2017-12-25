@@ -8,19 +8,19 @@ import (
 type jsonFormatter struct {
 }
 
-func (f *jsonFormatter) Format(counters map[string]*Counter) []byte {
+func (f *jsonFormatter) Format(counters SortedCounters) []byte {
 	var buf bytes.Buffer
 
 	buf.WriteRune('{')
 
 	first := true
-	for _, k := range sortedKeys(counters) {
+	for _, c := range counters {
 		if first {
 			first = false
 		} else {
 			buf.WriteRune(',')
 		}
-		fmt.Fprintf(&buf, `"%s":%d`, k, counters[k].Get())
+		fmt.Fprintf(&buf, `"%s":%d`, c.Name, c.Counter.Get())
 	}
 
 	buf.WriteRune('}')
