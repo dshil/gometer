@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -35,6 +36,7 @@ type DefaultMetrics struct {
 	counters     map[string]*Counter
 	formatter    Formatter
 	panicHandler PanicHandler
+	rootPrefix   string
 }
 
 var _ Metrics = (*DefaultMetrics)(nil)
@@ -76,6 +78,13 @@ func (m *DefaultMetrics) SetFormatter(f Formatter) {
 	m.formatter = f
 }
 
+// SetRootPrefix sets root prefix used to format output
+func (m *DefaultMetrics) SetRootPrefix(prefix string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.rootPrefix = prefix
+}
+
 // Formatter returns a metrics formatter.
 func (m *DefaultMetrics) Formatter() Formatter {
 	m.mu.Lock()
@@ -103,14 +112,14 @@ func (m *DefaultMetrics) GetJSON(predicate func(string) bool) []byte {
 	defer m.mu.Unlock()
 
 	result := make(map[string]*Counter)
-	formatter := jsonFormatter{}
 	for k, v := range m.counters {
 		if predicate(k) {
 			result[k] = v
 		}
 	}
 
-	return formatter.Format(result)
+	formatter := jsonFormatter{}
+	return formatter.Format(m.makeSortedCounters(result))
 }
 
 // SetPanicHandler sets error handler for errors that causing the panic.
@@ -118,6 +127,20 @@ func (m *DefaultMetrics) SetPanicHandler(handler PanicHandler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.panicHandler = handler
+}
+
+func (m *DefaultMetrics) makeSortedCounters(counters map[string]*Counter) SortedCounters {
+	s := make(SortedCounters, 0, len(counters))
+	for k, v := range counters {
+		s = append(s, struct {
+			Name    string
+			Counter *Counter
+		}{Name: m.rootPrefix + k, Counter: v})
+	}
+	sort.Slice(s, func(i, j int) bool {
+		return s[i].Name < s[j].Name
+	})
+	return s
 }
 
 // Write writes all existing metrics to output destination.
@@ -129,7 +152,7 @@ func (m *DefaultMetrics) Write() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	data := m.formatter.Format(m.counters)
+	data := m.formatter.Format(m.makeSortedCounters(m.counters))
 
 	if _, err := m.out.Write(data); err != nil {
 		return err

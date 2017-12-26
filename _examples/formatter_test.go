@@ -10,11 +10,11 @@ import (
 
 type simpleFormatter struct{}
 
-func (f *simpleFormatter) Format(counters map[string]*gometer.Counter) []byte {
+func (f *simpleFormatter) Format(counters gometer.SortedCounters) []byte {
 	var buf bytes.Buffer
 
-	for name, counter := range counters {
-		fmt.Fprintf(&buf, "%s:%d%s", name, counter.Get(), "\n")
+	for _, c := range counters {
+		fmt.Fprintf(&buf, "%s:%d%s", c.Name, c.Counter.Get(), "\n")
 	}
 
 	return buf.Bytes()
