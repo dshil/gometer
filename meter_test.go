@@ -13,23 +13,56 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMetricsStopWithoutStart(t *testing.T) {
-	t.Parallel()
-
-	metrics := New()
-	metrics.StopFileWriter()
-}
-
 func TestMetricsStopTwice(t *testing.T) {
 	t.Parallel()
 
+	file := newTempFile(t)
+	require.Nil(t, file.Close())
+	defer os.Remove(file.Name())
+
 	metrics := New()
-	metrics.StartFileWriter(FileWriterParams{
-		FilePath:       os.DevNull,
+	stopper := metrics.StartFileWriter(FileWriterParams{
+		FilePath:       file.Name(),
 		UpdateInterval: time.Millisecond * 100,
 	})
-	metrics.StopFileWriter()
-	metrics.StopFileWriter()
+	stopper.Stop()
+	stopper.Stop()
+}
+
+func TestMetricsFlushOnStop(t *testing.T) {
+	t.Parallel()
+
+	check := func(noFlushOnStop bool) {
+		file := newTempFile(t)
+		require.Nil(t, file.Close())
+		defer os.Remove(file.Name())
+
+		metrics := New()
+		stopper := metrics.StartFileWriter(FileWriterParams{
+			FilePath:       file.Name(),
+			UpdateInterval: time.Hour,
+			NoFlushOnStop:  noFlushOnStop,
+		})
+
+		inc := metrics.Get("add_num")
+		inc.Add(10)
+
+		stopper.Stop()
+
+		expMetrics := make(map[string]int64)
+
+		if !noFlushOnStop {
+			expMetrics["add_num"] = int64(10)
+		}
+		checkFileWriter(t, file.Name(), "\n", expMetrics)
+	}
+
+	t.Run("flush on stop", func(t *testing.T) {
+		check(false)
+	})
+	t.Run("no flush on stop", func(t *testing.T) {
+		check(true)
+	})
 }
 
 func TestMetricsStartFileWriter(t *testing.T) {
@@ -45,11 +78,10 @@ func TestMetricsStartFileWriter(t *testing.T) {
 	inc := metrics.Get("add_num")
 	inc.Add(10)
 
-	metrics.StartFileWriter(FileWriterParams{
+	defer metrics.StartFileWriter(FileWriterParams{
 		FilePath:       file.Name(),
 		UpdateInterval: time.Millisecond * 100,
-	})
-	defer metrics.StopFileWriter()
+	}).Stop()
 
 	checkFileWriter(t, file.Name(), lineSep, map[string]int64{
 		"add_num": int64(10),
@@ -121,11 +153,11 @@ func TestMetricsDefault(t *testing.T) {
 	file = newTempFile(t)
 	defer removeTempFile(t, file)
 
-	StartFileWriter(FileWriterParams{
+	stopper := StartFileWriter(FileWriterParams{
 		FilePath:       file.Name(),
 		UpdateInterval: time.Millisecond * 100,
 	})
-	StopFileWriter()
+	stopper.Stop()
 
 	counter := Get("default_metrics_counter")
 	require.NotNil(t, counter)
@@ -239,11 +271,10 @@ func TestMetricsSetRootPrefix(t *testing.T) {
 	inc := metrics.Get("add_num")
 	inc.Add(10)
 
-	metrics.StartFileWriter(FileWriterParams{
+	defer metrics.StartFileWriter(FileWriterParams{
 		FilePath:       file.Name(),
 		UpdateInterval: time.Millisecond * 100,
-	})
-	defer metrics.StopFileWriter()
+	}).Stop()
 
 	checkFileWriter(t, file.Name(), lineSep, map[string]int64{
 		prefix + "add_num": int64(10),
@@ -303,6 +334,10 @@ func checkFileWriter(t *testing.T, fileName, lineSep string, counters map[string
 					return true
 				}
 			}
+		}
+
+		if len(counters) == 0 && updateNum == 0 {
+			return true
 		}
 
 		return false
