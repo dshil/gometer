@@ -21,8 +21,7 @@ type Metrics interface {
 	WithPrefix(string, ...interface{}) *PrefixMetrics
 	SetPanicHandler(PanicHandler)
 	Write() error
-	StartFileWriter(FileWriterParams)
-	StopFileWriter()
+	StartFileWriter(FileWriterParams) Stopper
 }
 
 // DefaultMetrics is a default implementation of Metrics.
@@ -46,9 +45,11 @@ var _ Metrics = (*PrefixMetrics)(nil)
 //
 // FilePath represents a file path.
 // UpdateInterval determines how often metrics data will be written to a file.
+// NoFlushOnStop disables metrics flushing when the metrics writer finishes.
 type FileWriterParams struct {
 	FilePath       string
 	UpdateInterval time.Duration
+	NoFlushOnStop  bool
 }
 
 // Default is a standard metrics object.
@@ -163,39 +164,21 @@ func (m *DefaultMetrics) Write() error {
 }
 
 // StartFileWriter starts a goroutine that periodically writes metrics to a file.
-func (m *DefaultMetrics) StartFileWriter(p FileWriterParams) {
+func (m *DefaultMetrics) StartFileWriter(p FileWriterParams) Stopper {
 	m.wg.Add(1)
 
-	go func() {
-		defer m.wg.Done()
+	go m.run(p)
 
-		ticker := time.NewTicker(p.UpdateInterval)
-		defer ticker.Stop()
+	return &stopperFunc{stop: func() {
+		m.stopOnce.Do(func() {
+			close(m.cancelCh)
 
-		for {
-			select {
-			case <-ticker.C:
-				err := m.createAndWriteFile(p.FilePath)
-				if err != nil {
-					if h := m.getPanicHandler(); h != nil {
-						h.Handle(err)
-						return
-					}
-					panic(err)
-				}
-			case <-m.cancelCh:
-				return
+			m.wg.Wait()
+			if !p.NoFlushOnStop {
+				m.handleFileWrite(p.FilePath)
 			}
-		}
-	}()
-}
-
-// StopFileWriter stops a goroutine that periodically writes metrics to a file.
-func (m *DefaultMetrics) StopFileWriter() {
-	m.stopOnce.Do(func() {
-		close(m.cancelCh)
-	})
-	m.wg.Wait()
+		})
+	}}
 }
 
 // WithPrefix creates new PrefixMetrics that uses original Metrics with specified prefix.
@@ -254,19 +237,41 @@ func Write() error {
 
 // StartFileWriter starts a goroutine that periodically writes metrics to a file.
 // For more details see DefaultMetrics.StartFileWriter().
-func StartFileWriter(p FileWriterParams) {
-	Default.StartFileWriter(p)
-}
-
-// StopFileWriter stops a goroutine that periodically writes metrics to a file.
-func StopFileWriter() {
-	Default.StopFileWriter()
+func StartFileWriter(p FileWriterParams) Stopper {
+	return Default.StartFileWriter(p)
 }
 
 // WithPrefix creates new PrefixMetrics that uses original Metrics with specified prefix.
 // For more details see DefaultMetrics.WithPrefix().
 func WithPrefix(prefix string, v ...interface{}) *PrefixMetrics {
 	return Default.WithPrefix(prefix, v...)
+}
+
+func (m *DefaultMetrics) run(p FileWriterParams) {
+	defer m.wg.Done()
+
+	ticker := time.NewTicker(p.UpdateInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			m.handleFileWrite(p.FilePath)
+		case <-m.cancelCh:
+			return
+		}
+	}
+}
+
+func (m *DefaultMetrics) handleFileWrite(path string) {
+	err := m.createAndWriteFile(path)
+	if err != nil {
+		if h := m.getPanicHandler(); h != nil {
+			h.Handle(err)
+			return
+		}
+		panic(err)
+	}
 }
 
 func (m *DefaultMetrics) createAndWriteFile(path string) error {

@@ -13,6 +13,5 @@ func ExampleWriteToFile() {
 	gometer.StartFileWriter(gometer.FileWriterParams{
 		FilePath:       "test_file",
 		UpdateInterval: time.Second,
-	})
-	gometer.StopFileWriter()
+	}).Stop()
 }
