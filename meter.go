@@ -40,6 +40,7 @@ type DefaultMetrics struct {
 }
 
 var _ Metrics = (*DefaultMetrics)(nil)
+var _ Metrics = (*PrefixMetrics)(nil)
 
 // FileWriterParams represents a params for asynchronous file writing operation.
 //
