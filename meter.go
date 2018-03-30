@@ -19,7 +19,6 @@ type Metrics interface {
 	Get(string) *Counter
 	GetJSON(func(string) bool) []byte
 	WithPrefix(string, ...interface{}) *PrefixMetrics
-	SetPanicHandler(PanicHandler)
 	Write() error
 	StartFileWriter(FileWriterParams) Stopper
 }
@@ -30,12 +29,11 @@ type DefaultMetrics struct {
 	stopOnce sync.Once
 	cancelCh chan struct{}
 
-	mu           sync.Mutex
-	out          io.Writer
-	counters     map[string]*Counter
-	formatter    Formatter
-	panicHandler PanicHandler
-	rootPrefix   string
+	mu         sync.Mutex
+	out        io.Writer
+	counters   map[string]*Counter
+	formatter  Formatter
+	rootPrefix string
 }
 
 var _ Metrics = (*DefaultMetrics)(nil)
@@ -46,10 +44,12 @@ var _ Metrics = (*PrefixMetrics)(nil)
 // FilePath represents a file path.
 // UpdateInterval determines how often metrics data will be written to a file.
 // NoFlushOnStop disables metrics flushing when the metrics writer finishes.
+// ErrorHandler allows to handle errors from the goroutine that writes metrics.
 type FileWriterParams struct {
 	FilePath       string
 	UpdateInterval time.Duration
 	NoFlushOnStop  bool
+	ErrorHandler   func(err error)
 }
 
 // Default is a standard metrics object.
@@ -124,13 +124,6 @@ func (m *DefaultMetrics) GetJSON(predicate func(string) bool) []byte {
 	return formatter.Format(m.makeSortedCounters(result))
 }
 
-// SetPanicHandler sets error handler for errors that causing the panic.
-func (m *DefaultMetrics) SetPanicHandler(handler PanicHandler) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.panicHandler = handler
-}
-
 func (m *DefaultMetrics) makeSortedCounters(counters map[string]*Counter) SortedCounters {
 	s := make(SortedCounters, 0, len(counters))
 	for k, v := range counters {
@@ -164,18 +157,21 @@ func (m *DefaultMetrics) Write() error {
 }
 
 // StartFileWriter starts a goroutine that periodically writes metrics to a file.
-func (m *DefaultMetrics) StartFileWriter(p FileWriterParams) Stopper {
+func (m *DefaultMetrics) StartFileWriter(params FileWriterParams) Stopper {
 	m.wg.Add(1)
 
-	go m.run(p)
+	go func() {
+		defer m.wg.Done()
+		m.run(params)
+	}()
 
 	return &stopperFunc{stop: func() {
 		m.stopOnce.Do(func() {
 			close(m.cancelCh)
 
 			m.wg.Wait()
-			if !p.NoFlushOnStop {
-				m.handleFileWrite(p.FilePath)
+			if !params.NoFlushOnStop {
+				m.handleFileWrite(params)
 			}
 		})
 	}}
@@ -187,12 +183,6 @@ func (m *DefaultMetrics) WithPrefix(prefix string, v ...interface{}) *PrefixMetr
 		Metrics: m,
 		prefix:  fmt.Sprintf(prefix, v...),
 	}
-}
-
-func (m *DefaultMetrics) getPanicHandler() PanicHandler {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.panicHandler
 }
 
 // These functions are used for standard metrics.
@@ -222,13 +212,6 @@ func GetJSON(predicate func(string) bool) []byte {
 	return Default.GetJSON(predicate)
 }
 
-// SetPanicHandler sets error handler for errors that causing the panic.
-func SetPanicHandler(handler PanicHandler) {
-	Default.mu.Lock()
-	defer Default.mu.Unlock()
-	Default.panicHandler = handler
-}
-
 // Write all existing metrics to an output destination.
 // For more details see DefaultMetrics.Write().
 func Write() error {
@@ -247,30 +230,28 @@ func WithPrefix(prefix string, v ...interface{}) *PrefixMetrics {
 	return Default.WithPrefix(prefix, v...)
 }
 
-func (m *DefaultMetrics) run(p FileWriterParams) {
-	defer m.wg.Done()
-
-	ticker := time.NewTicker(p.UpdateInterval)
+func (m *DefaultMetrics) run(params FileWriterParams) {
+	ticker := time.NewTicker(params.UpdateInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			m.handleFileWrite(p.FilePath)
+			m.handleFileWrite(params)
 		case <-m.cancelCh:
 			return
 		}
 	}
 }
 
-func (m *DefaultMetrics) handleFileWrite(path string) {
-	err := m.createAndWriteFile(path)
+func (m *DefaultMetrics) handleFileWrite(params FileWriterParams) {
+	err := m.createAndWriteFile(params.FilePath)
 	if err != nil {
-		if h := m.getPanicHandler(); h != nil {
-			h.Handle(err)
-			return
+		if params.ErrorHandler != nil {
+			params.ErrorHandler(err)
+		} else {
+			panic(err)
 		}
-		panic(err)
 	}
 }
 
