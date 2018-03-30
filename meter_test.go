@@ -1,7 +1,6 @@
 package gometer
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -30,8 +29,6 @@ func TestMetricsStopTwice(t *testing.T) {
 }
 
 func TestMetricsFlushOnStop(t *testing.T) {
-	t.Parallel()
-
 	check := func(noFlushOnStop bool) {
 		file := newTempFile(t)
 		require.Nil(t, file.Close())
@@ -58,9 +55,13 @@ func TestMetricsFlushOnStop(t *testing.T) {
 	}
 
 	t.Run("flush on stop", func(t *testing.T) {
+		t.Parallel()
+
 		check(false)
 	})
 	t.Run("no flush on stop", func(t *testing.T) {
+		t.Parallel()
+
 		check(true)
 	})
 }
@@ -93,6 +94,42 @@ func TestMetricsStartFileWriter(t *testing.T) {
 	checkFileWriter(t, file.Name(), lineSep, map[string]int64{
 		"add_num": int64(10),
 		"inc_num": int64(4),
+	})
+}
+
+func TestMetricsStartFileWriterError(t *testing.T) {
+	t.Run("handle error", func(t *testing.T) {
+		t.Parallel()
+
+		metrics := New()
+		metrics.Get("add_num").Add(1)
+		errCh := make(chan error)
+
+		defer metrics.StartFileWriter(FileWriterParams{
+			FilePath:       "/",
+			UpdateInterval: time.Millisecond * 100,
+			ErrorHandler: func(err error) {
+				select {
+				case errCh <- err:
+				default:
+				}
+			},
+		}).Stop()
+
+		assert.NotNil(t, <-errCh)
+	})
+	t.Run("don't handle error", func(t *testing.T) {
+		t.Parallel()
+
+		metrics := New()
+		metrics.Get("add_num").Add(1)
+
+		assert.Panics(t, func() {
+			defer metrics.StartFileWriter(FileWriterParams{
+				FilePath:       "/",
+				UpdateInterval: time.Millisecond * 100,
+			}).Stop()
+		})
 	})
 }
 
@@ -147,9 +184,6 @@ func TestMetricsDefault(t *testing.T) {
 	require.Nil(t, Write())
 	removeTempFile(t, file)
 
-	SetPanicHandler(new(mockPanicHandler))
-	assert.NotNil(t, Default.panicHandler)
-
 	file = newTempFile(t)
 	defer removeTempFile(t, file)
 
@@ -166,15 +200,6 @@ func TestMetricsDefault(t *testing.T) {
 	prefixMetrics := WithPrefix("prefix.%s.", "errors")
 	c2 := prefixMetrics.Get("data")
 	assert.True(t, c2 == Get("prefix.errors.data"))
-}
-
-func TestMetricsSetPanicHandler(t *testing.T) {
-	t.Parallel()
-
-	metrics := New()
-	handler := new(mockPanicHandler)
-	metrics.SetPanicHandler(handler)
-	assert.Equal(t, handler, metrics.getPanicHandler())
 }
 
 func TestMetricsGetTwice(t *testing.T) {
@@ -281,14 +306,8 @@ func TestMetricsSetRootPrefix(t *testing.T) {
 	})
 }
 
-type mockPanicHandler struct{}
-
-func (h *mockPanicHandler) Handle(err error) {
-	fmt.Fprintf(os.Stderr, "failed to write metrics file, %v\n", err)
-}
-
 func newTempFile(t *testing.T) *os.File {
-	file, err := ioutil.TempFile("", t.Name())
+	file, err := ioutil.TempFile("", "gometer")
 	require.Nil(t, err)
 	return file
 }

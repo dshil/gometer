@@ -53,6 +53,7 @@ func ExampleWriteToStdout() {
 package example
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/dshil/gometer"
@@ -65,6 +66,9 @@ func ExampleWriteToFile() {
 	gometer.StartFileWriter(gometer.FileWriterParams{
 		FilePath:       "test_file",
 		UpdateInterval: time.Second,
+		ErrorHandler: func(err error) {
+			fmt.Println(err)
+		},
 	}).Stop()
 }
 ```
